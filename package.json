@@ -1,0 +1,14 @@
+{
+  "name": "starwin-suite-demo",
+  "version": "0.1.0",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^30.0.0",
+    "qrcode": "^1.5.4",
+    "whatsapp-web.js": "^1.24.0"
+  }
+}
