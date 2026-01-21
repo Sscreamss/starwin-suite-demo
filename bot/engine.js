@@ -9,24 +9,57 @@ class BotEngine {
   }
 
   async handleIncoming({ lineId, from, text, ts }) {
+    console.log(`[ENGINE] handleIncoming llamado: lineId=${lineId}, from=${from}, text="${text}"`);
+    
     const cfg = this.configStore.get();
     const msg = (text || "").trim();
-    if (!msg) return;
-
-    // crear/obtener sesión (ya no filtramos "solo nuevos")
-    const session = this.sessionStore.upsert(lineId, from, (s) => s);
-
-    // rate-limit global opcional (para no contestar cada milisegundo)
-    if ((cfg.safety?.rateLimitSeconds || 0) > 0) {
-      const now = Date.now();
-      const delta = now - (session.meta.lastActionAt || 0);
-      if (delta < (cfg.safety.rateLimitSeconds * 1000)) return;
+    if (!msg) {
+      console.log(`[ENGINE] Mensaje vacío, retornando`);
+      return;
     }
 
-    const upper = msg.toUpperCase();
+    // crear/obtener sesión
+    const session = this.sessionStore.upsert(lineId, from, (s) => s);
+
+    // Chequear si sesión lleva >2 horas sin actividad → resetear
+    this.sessionStore.resetIfInactive(lineId, from, 2);
+    
+    // Obtener sesión actualizada (post-reset si aplica)
+    const sessionAfterCheck = this.sessionStore.get(lineId, from);
+
+    // ✅ Normalizar: sin acentos, mayúsculas, espacios extras
+    const normalized = msg
+      .toUpperCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+
+    console.log(`[DEBUG] Mensaje original: "${msg}" -> Normalizado: "${normalized}"`);
+
+    // rate-limit SOLO para mensajes no-comando (spam prevention)
+    // NO aplicar rate-limit si estamos esperando input (WAIT_NAME, WAIT_DEPOSIT)
+    const isWaitingForInput = sessionAfterCheck.state === "WAIT_NAME" || sessionAfterCheck.state === "WAIT_DEPOSIT";
+    
+    const isKnownCommand = 
+      normalized === "MENU" || 
+      normalized === "REINICIAR" || 
+      normalized === "CANCELAR" ||
+      normalized.includes("INFORMACION") ||
+      normalized.includes("ASISTENCIA") ||
+      normalized.includes("CREAR USUARIO");
+    
+    if (!isKnownCommand && !isWaitingForInput && (cfg.safety?.rateLimitSeconds || 0) > 0) {
+      const now = Date.now();
+      const delta = now - (session.meta.lastActionAt || 0);
+      console.log(`[RATELIMIT] delta=${delta}ms, limit=${cfg.safety.rateLimitSeconds * 1000}ms`);
+      if (delta < (cfg.safety.rateLimitSeconds * 1000)) {
+        console.log(`[RATELIMIT] ¡Bloqueado por rate-limit!`);
+        return;
+      }
+    }
 
     // comandos globales
-    if (upper === "MENU" || upper === "REINICIAR" || upper === "CANCELAR") {
+    if (normalized === "MENU" || normalized === "REINICIAR" || normalized === "CANCELAR") {
       await this._setState(lineId, from, "MENU");
       await this._sendMenu(lineId, from, cfg, true);
       await this._log("CMD_MENU", { lineId, from });
@@ -34,7 +67,13 @@ class BotEngine {
     }
 
     // si estamos esperando nombre, lo procesamos primero
-    if (session.state === "WAIT_NAME") {
+    if (sessionAfterCheck.state === "WAIT_NAME") {
+      // Resetear rate-limit para que no bloquee el input del nombre
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.meta.lastActionAt = 0;
+        return s;
+      });
+
       if (!isValidName(msg)) {
         await this._bumpAttempts(lineId, from);
         await this._reply(lineId, from, cfg.createUser.invalidName);
@@ -59,7 +98,7 @@ class BotEngine {
       });
 
       if (!res.ok) {
-        await this._reply(lineId, from, "Hubo un error al crear el usuario. Probá de nuevo más tarde.");
+        await this._reply(lineId, from, "Hubo un error al crear el usuario. Proba de nuevo mas tarde.");
         await this._setState(lineId, from, "MENU");
         await this._sendMenu(lineId, from, cfg, true);
         await this._log("CREATE_ERROR", { lineId, from, err: res.error || "unknown" });
@@ -75,35 +114,117 @@ class BotEngine {
       await this._reply(lineId, from, out);
       await this._log("CREATE_OK", { lineId, from, username: res.username });
 
-      await this._setState(lineId, from, "MENU");
-      await this._sendMenu(lineId, from, cfg, true);
+      // Ir a WAIT_DEPOSIT para preguntar sobre cargar saldo
+      await this._setState(lineId, from, "WAIT_DEPOSIT");
+      console.log(`[DEBUG] cfg.createUser.askDeposit = "${cfg.createUser.askDeposit}"`);
+      await this._reply(lineId, from, cfg.createUser.askDeposit);
       return;
     }
 
-    // estado MENU o cualquier otro: interpretamos opciones
-    if (upper === "INFORMACIÓN" || upper === "INFORMACION" || upper === "INFO") {
+    // si estamos esperando respuesta sobre deposito
+    if (sessionAfterCheck.state === "WAIT_DEPOSIT") {
+      // Resetear rate-limit para que no bloquee el input SI/NO
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.meta.lastActionAt = 0;
+        return s;
+      });
+
+      if (normalized === "SI" || normalized === "SÍ" || normalized === "S") {
+        await this._reply(lineId, from, cfg.createUser.depositYes);
+        await this._log("DEPOSIT_YES", { lineId, from });
+      } else if (normalized === "NO" || normalized === "N") {
+        await this._reply(lineId, from, cfg.createUser.depositNo);
+        await this._log("DEPOSIT_NO", { lineId, from });
+      } else {
+        // respuesta inválida, preguntar de nuevo
+        await this._reply(lineId, from, cfg.createUser.askDeposit);
+        return;
+      }
+      
+      // Marcar sesión como completada
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.completed = true;
+        s.state = "MENU";
+        return s;
+      });
+      
+      return;
+    }
+
+    // ✅ OPCIONES DEL MENU - con tolerancia a acentos y variaciones
+    // INFO / INFORMACIÓN / INFORMACION / INFO
+    if (normalized.includes("INFORMACION") || normalized === "INFO") {
+      console.log(`[${lineId}] Usuario pidió INFORMACIÓN`);
+      
+      // Marcar opción como usada
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.data = s.data || {};
+        s.data.usedOptions = s.data.usedOptions || {};
+        s.data.usedOptions.INFORMACION = true;
+        return s;
+      });
+
       await this._reply(lineId, from, cfg.info.text);
+      await this._reply(lineId, from, "¿Quieres saber algo mas?");
+      
+      // Enviar menú dinámico con opciones restantes
+      await this._sendDynamicMenu(lineId, from, cfg);
       await this._log("FLOW_INFO", { lineId, from });
-      // luego re-muestro menú (opcional)
-      await this._sendMenu(lineId, from, cfg);
+      
+      // Resetear rate-limit para que no bloquee siguiente comando
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.meta.lastActionAt = 0;
+        return s;
+      });
       return;
     }
 
-    if (upper === "ASISTENCIA" || upper === "AYUDA" || upper === "SOPORTE") {
+    // ASISTENCIA / AYUDA / SOPORTE
+    if (normalized.includes("ASISTENCIA") || normalized.includes("AYUDA") || normalized.includes("SOPORTE")) {
+      console.log(`[${lineId}] Usuario pidió ASISTENCIA`);
+      
+      // Marcar opción como usada
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.data = s.data || {};
+        s.data.usedOptions = s.data.usedOptions || {};
+        s.data.usedOptions.ASISTENCIA = true;
+        return s;
+      });
+
       await this._reply(lineId, from, cfg.support.text);
+      await this._reply(lineId, from, "¿Quieres saber algo mas?");
+      
+      // Enviar menú dinámico con opciones restantes
+      await this._sendDynamicMenu(lineId, from, cfg);
       await this._log("FLOW_SUPPORT", { lineId, from });
-      await this._sendMenu(lineId, from, cfg);
+      
+      // Resetear rate-limit para que no bloquee siguiente comando
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.meta.lastActionAt = 0;
+        return s;
+      });
       return;
     }
 
-    if (upper === "CREAR USUARIO" || upper === "CREAR" || upper === "USUARIO") {
+    // CREAR USUARIO / CREAR / USUARIO
+    if (normalized.includes("CREAR USUARIO") || normalized.includes("CREAR") || normalized === "USUARIO") {
+      console.log(`[${lineId}] Usuario pidió CREAR USUARIO`);
+      
+      // Marcar opción como usada
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.data = s.data || {};
+        s.data.usedOptions = s.data.usedOptions || {};
+        s.data.usedOptions.CREAR_USUARIO = true;
+        return s;
+      });
+      
       await this._setState(lineId, from, "WAIT_NAME");
       await this._reply(lineId, from, cfg.createUser.askName);
       await this._log("FLOW_CREATE_START", { lineId, from });
       return;
     }
 
-    // ✅ clave: Bienvenida/menú SIEMPRE ante cualquier mensaje (con cooldown)
+    // ✅ Si no coincide con nada, mostrar menú de nuevo
     await this._sendMenu(lineId, from, cfg);
     await this._log("WELCOME_SENT", { lineId, from, text: msg });
   }
@@ -116,13 +237,17 @@ class BotEngine {
       const s = this.sessionStore.get(lineId, to);
       const last = s?.meta?.lastWelcomeAt || 0;
       const now = Date.now();
-      if (now - last < cooldown * 1000) return;
+      if (now - last < cooldown * 1000) {
+        console.log(`[${lineId}] Menu cooldown activo, saltando`);
+        return;
+      }
     }
 
     const menuText =
       `${cfg.menu.welcome}\n\n` +
-      `Responde con:\n` +
-      `- INFORMACIÓN\n- CREAR USUARIO\n- ASISTENCIA`;
+      `Responde con: INFORMACION, CREAR USUARIO o ASISTENCIA`;
+
+    console.log(`[${lineId}] Enviando menu a ${to}`);
 
     // guardo timestamp de bienvenida
     this.sessionStore.upsert(lineId, to, (s) => {
@@ -168,6 +293,27 @@ class BotEngine {
 
   async _log(type, payload) {
     this.onLog?.({ at: new Date().toISOString(), type, ...payload });
+  }
+
+  async _sendDynamicMenu(lineId, to, cfg) {
+    // Obtener sesión para ver qué opciones ya se usaron
+    const session = this.sessionStore.get(lineId, to);
+    const usedOptions = session?.data?.usedOptions || {};
+
+    // Construir lista de opciones disponibles
+    const availableOptions = [];
+    if (!usedOptions.INFORMACION) availableOptions.push("INFORMACION");
+    if (!usedOptions.ASISTENCIA) availableOptions.push("ASISTENCIA");
+    if (!usedOptions.CREAR_USUARIO) availableOptions.push("CREAR USUARIO");
+
+    // Si no hay opciones disponibles, mostrar todas de nuevo
+    const options = availableOptions.length > 0 ? availableOptions : ["INFORMACION", "ASISTENCIA", "CREAR USUARIO"];
+
+    const menuText = `Responde con: ${options.join(", ")}`;
+
+    console.log(`[${lineId}] Enviando menú dinámico a ${to}: ${options.join(", ")}`);
+
+    await this._reply(lineId, to, menuText);
   }
 }
 

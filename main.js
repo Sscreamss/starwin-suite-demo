@@ -44,8 +44,15 @@ app.whenReady().then(() => {
   createWindow();
 
   // Stores
-  configStore = new ConfigStore({ basePath: app.getPath("userData") });
-  sessionStore = new SessionStore({ basePath: app.getPath("userData") });
+  const userDataPath = app.getPath("userData");
+  console.log(`[MAIN] userData path: ${userDataPath}`);
+  
+  configStore = new ConfigStore({ basePath: userDataPath });
+  sessionStore = new SessionStore({ basePath: userDataPath });
+  
+  // Limpiar sesiones incompletas al iniciar
+  sessionStore.cleanIncompleted();
+  
   userCreator = new UserCreator();
 
   // ✅ PRIMERO: Crear LineManager (sin dependencias)
@@ -55,12 +62,16 @@ app.whenReady().then(() => {
     onStatus: (lineId, status) => send("lines:status", { lineId, status }),
     onMessage: async (lineId, msg) => {
       send("lines:message", { lineId, message: msg });
-      await botEngine.handleIncoming({
-        lineId,
-        from: msg.from,
-        text: msg.body,
-        ts: msg.timestamp
-      });
+      try {
+        await botEngine.handleIncoming({
+          lineId,
+          from: msg.from,
+          text: msg.body,
+          ts: msg.timestamp
+        });
+      } catch (err) {
+        console.error(`[MAIN] Error en handleIncoming:`, err);
+      }
     }
   });
 
@@ -70,7 +81,7 @@ app.whenReady().then(() => {
     sessionStore,
     userCreator,
     onSendMessage: async ({ lineId, to, text }) => {
-      await lineManager.sendText(lineId, to, text);
+      return await lineManager.sendText(lineId, to, text);
     },
     onLog: (entry) => {
       send("log:event", entry);

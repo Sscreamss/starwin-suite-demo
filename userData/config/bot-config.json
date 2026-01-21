@@ -1,0 +1,35 @@
+{
+  "appName": "Starwin Suite",
+  "url": "www.ganamos.tech",
+  "usernameSuffix": "_starwin",
+  "fixedPassword": "Hola1234",
+  "welcome": {
+    "cooldownSeconds": 0
+  },
+  "menu": {
+    "welcome": "¡Hola! ¿Cómo podemos ayudarte?",
+    "buttons": [
+      "INFORMACIÓN",
+      "CREAR USUARIO",
+      "ASISTENCIA"
+    ]
+  },
+  "info": {
+    "text": "Somos lideres.\nwww.ganamos.tech\n- Minimo de carga: $1.000\n- Minimo de retiro: $3.000\n- Retiros ilimitados\n- Atencion 24hs"
+  },
+  "support": {
+    "text": "POR SOPORTE PERSONALIZADO COMUNIQUESE AL 11 7171-7171"
+  },
+  "createUser": {
+    "askName": "Perfecto. Decime tu nombre (solo tu nombre, por ejemplo: Juan).",
+    "invalidName": "Mandame solo tu nombre (sin numeros, emojis ni simbolos).",
+    "creating": "Dale, un segundo... estoy creando tu usuario.",
+    "createdTemplate": "Listo! Tu usuario ya fue creado.\n\nUSUARIO: {{username}}\nCONTRASENA: {{password}}\n\nEntra aca: {{url}}",
+    "askDeposit": "¿Deseas cargar saldo?",
+    "depositYes": "En unos momentos un cajero se estara comunicando con vos.",
+    "depositNo": "Muchas gracias por comunicarte con nosotros, quedamos atentos!"
+  },
+  "safety": {
+    "rateLimitSeconds": 0
+  }
+}

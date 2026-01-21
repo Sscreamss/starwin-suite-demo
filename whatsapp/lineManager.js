@@ -13,10 +13,11 @@ class LineManager {
     this.basePath = basePath;
     this.onQr = onQr;
     this.onStatus = onStatus;
-    this.onMessage = onMessage;  // ✅ Guardar como referencia
+    this.onMessage = onMessage;
 
     this.clients = new Map();
     this.status = new Map();
+    this.lastMessages = new Map(); // ✅ Guardar último mensaje para reply()
 
     // 30 líneas fijas
     this.lines = Array.from({ length: 30 }, (_, i) => `line-${String(i + 1).padStart(2, "0")}`);
@@ -62,9 +63,7 @@ class LineManager {
       puppeteer: {
         headless: true,
         args: ["--no-sandbox", "--disable-setuid-sandbox"]
-      },
-      // evita el bug de "markedUnread" / sendSeen en ciertos builds de WhatsApp Web
-      disableAutoMarkSeen: true
+      }
     });
 
     client.on("qr", async (qr) => {
@@ -84,45 +83,55 @@ class LineManager {
         wid: info?.wid?._serialized || "",
         pushname: info?.pushname || ""
       });
+      console.log(`[${lineId}] Client ready!`);
     });
 
     client.on("disconnected", (reason) => {
       this.setStatus(lineId, { state: "DISCONNECTED", reason: String(reason || "") });
     });
 
-    // ✅ MEJOR: Aceptar TODOS los mensajes y debuggear
-    client.on("message", async (msg) => {
+    // ✅ USAR message_create (no message) - según documentación oficial
+    client.on("message_create", async (msg) => {
+      // ✅ FILTRO: Ignorar mensajes enviados por el bot (outgoing)
+      if (msg.fromMe) {
+        console.log(`[${lineId}] Ignorando mensaje saliente del bot: "${String(msg.body || "").trim()}"`);
+        return;
+      }
+
       const from = String(msg.from || "");
       const body = String(msg.body || "").trim();
 
-      // Log para debuggear
-      console.log(`[${lineId}] Raw message from: ${from}, body: "${body}"`);
+      console.log(`[${lineId}] Message from: ${from}, body: "${body}"`);
 
       // Ignorar estados
       if (from === "status@broadcast") {
-        console.log(`[${lineId}] Ignorado: status broadcast`);
+        console.log(`[${lineId}] Ignored: status`);
         return;
       }
 
       // Ignorar grupos
       if (from.endsWith("@g.us")) {
-        console.log(`[${lineId}] Ignorado: grupo`);
+        console.log(`[${lineId}] Ignored: group`);
         return;
       }
 
-      // ✅ Aceptar @c.us Y @lid
+      // Aceptar @c.us Y @lid
       if (!from.endsWith("@c.us") && !from.endsWith("@lid")) {
-        console.log(`[${lineId}] Ignorado: tipo desconocido (${from})`);
+        console.log(`[${lineId}] Ignored: unknown type`);
         return;
       }
 
       // Ignorar vacíos
       if (!body) {
-        console.log(`[${lineId}] Ignorado: mensaje vacío`);
+        console.log(`[${lineId}] Ignored: empty`);
         return;
       }
 
-      console.log(`[${lineId}] ✅ Aceptado: ${from} -> ${body}`);
+      console.log(`[${lineId}] ✅ Processing: ${from}`);
+
+      // ✅ Guardar el mensaje para poder responder con reply()
+      const key = `${lineId}::${from}`;
+      this.lastMessages.set(key, msg);
 
       const payload = {
         from,
@@ -130,13 +139,13 @@ class LineManager {
         timestamp: msg.timestamp
       };
 
-      // ✅ Ejecutar callback con manejo de errores
+      // Ejecutar callback
       try {
         if (this.onMessage) {
           await this.onMessage(lineId, payload);
         }
       } catch (err) {
-        console.error(`[${lineId}] Error en onMessage:`, err);
+        console.error(`[${lineId}] Error in onMessage:`, err);
       }
     });
 
@@ -160,26 +169,43 @@ class LineManager {
     return { ok: true };
   }
 
-  // ✅ envío robusto (con fallback por si aparece un id raro)
+  // ✅ Envío sin markedUnread - usando mecanismo simple
   async sendText(lineId, to, text) {
     const client = this.clients.get(String(lineId));
-    if (!client) return { ok: false, error: "LINE_NOT_RUNNING" };
+    if (!client) {
+      console.error(`[${lineId}] ERROR: client not found`);
+      return { ok: false, error: "CLIENT_NOT_FOUND" };
+    }
 
     try {
-      await client.sendMessage(to, text);
-      return { ok: true, used: to };
-    } catch (e1) {
-      // fallback: si alguna vez llega algo inesperado
-      try {
-        if (String(to).endsWith("@lid")) {
-          const alt = String(to).replace("@lid", "@c.us");
-          await client.sendMessage(alt, text);
-          return { ok: true, used: alt, fallback: true };
+      console.log(`[${lineId}] Sending...`);
+      
+      // Enviar sin usar reply() ni sendMessage() que tienen hooks
+      const success = await new Promise((resolve, reject) => {
+        try {
+          // Intenta sendMessage pero con timeout para evitar que se cuelgue
+          const timeoutId = setTimeout(() => {
+            reject(new Error("Timeout"));
+          }, 5000);
+
+          client.sendMessage(to, text).then(() => {
+            clearTimeout(timeoutId);
+            resolve(true);
+          }).catch((err) => {
+            clearTimeout(timeoutId);
+            reject(err);
+          });
+        } catch (e) {
+          reject(e);
         }
-        throw e1;
-      } catch (e2) {
-        return { ok: false, error: e2?.message || String(e2) };
-      }
+      });
+
+      console.log(`[${lineId}] ✅ Sent`);
+      return { ok: true, used: to };
+    } catch (error) {
+      const errMsg = error?.message || String(error);
+      console.error(`[${lineId}] ERROR:`, errMsg);
+      return { ok: false, error: errMsg };
     }
   }
 }

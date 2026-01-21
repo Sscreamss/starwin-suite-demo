@@ -67,6 +67,45 @@ class SessionStore {
   count() {
     return Object.keys(this.cache).length;
   }
+
+  // Limpiar sesiones incompletas (sin 'completed' flag)
+  cleanIncompleted() {
+    const before = Object.keys(this.cache).length;
+    const cleaned = {};
+    
+    for (const [k, session] of Object.entries(this.cache)) {
+      if (session.completed === true) {
+        cleaned[k] = session;
+      }
+    }
+    
+    this.cache = cleaned;
+    this._writeAll();
+    
+    const after = Object.keys(this.cache).length;
+    console.log(`[SessionStore] Limpiadas ${before - after} sesiones incompletas`);
+  }
+
+  // Resetear sesión si pasó >X horas sin actividad
+  resetIfInactive(lineId, chatId, inactiveHours = 2) {
+    const session = this.get(lineId, chatId);
+    if (!session) return false;
+
+    const lastAction = session.meta?.lastActionAt || 0;
+    const now = Date.now();
+    const inactiveMs = inactiveHours * 60 * 60 * 1000;
+
+    if (now - lastAction > inactiveMs) {
+      console.log(`[${lineId}] Sesión inactiva >2 horas, reseteando a MENU`);
+      return this.upsert(lineId, chatId, (s) => {
+        s.state = "MENU";
+        s.data = {};
+        return s;
+      });
+    }
+    
+    return false;
+  }
 }
 
 module.exports = { SessionStore };
