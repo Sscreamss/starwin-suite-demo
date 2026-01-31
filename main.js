@@ -38,7 +38,7 @@ function createMainWindow() {
       sandbox: false
     },
     icon: path.join(__dirname, 'icon.png'),
-    title: 'Starwin Suite Dashboard'
+    title: 'BotDash'
   });
 
   mainWindow.loadFile(path.join(__dirname, "index.html"));

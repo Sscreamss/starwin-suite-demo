@@ -1,385 +1,576 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Configuración - Starwin Suite</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configuración - Starwin Suite</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-        :root {
-            --primary: #3b82f6;
-            --success: #10b981;
-            --danger: #ef4444;
-            --dark: #0f172a;
-            --gray: #64748b;
-            --gray-light: #e2e8f0;
-            --white: #ffffff;
-        }
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            color: #e2e8f0;
-            min-height: 100vh;
-            padding: 20px;
-        }
+    :root {
+      --primary: #3b82f6;
+      --success: #10b981;
+      --danger: #ef4444;
+      --dark: #0f172a;
+      --gray: #64748b;
+      --gray-light: #e2e8f0;
+      --white: #ffffff;
 
-        .config-page {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px;
-        }
+      --card: rgba(30, 41, 59, 0.60);
+      --card-border: rgba(100, 116, 139, 0.30);
+      --input-bg: rgba(15, 23, 42, 0.80);
+      --input-border: rgba(100, 116, 139, 0.50);
+    }
 
-        .config-header {
-            margin-bottom: 40px;
-        }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 18px;
+    }
 
-        .config-header h1 {
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 10px;
-            font-size: 2rem;
-        }
+    .layout {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 18px;
+      align-items: start;
+    }
 
-        .config-header p {
-            color: #64748b;
-        }
+    /* Sidebar */
+    .sidebar {
+      position: sticky;
+      top: 18px;
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 16px;
+      backdrop-filter: blur(8px);
+    }
 
-        #alertContainer {
-            margin-bottom: 20px;
-        }
+    .brand {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 14px;
+    }
 
-        .alert {
-            padding: 15px 20px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-            align-items: center;
-            gap: 10px;
-        }
+    .brand .icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      background: rgba(59,130,246,.18);
+      border: 1px solid rgba(59,130,246,.30);
+      color: var(--primary);
+    }
 
-        .alert.show {
-            display: flex;
-        }
+    .brand h1 {
+      font-size: 16px;
+      line-height: 1.2;
+      color: #fff;
+      margin: 0;
+    }
 
-        .alert-success {
-            background: rgba(16, 185, 129, 0.2);
-            border: 1px solid #10b981;
-            color: #10b981;
-        }
+    .brand p {
+      font-size: 12px;
+      color: var(--gray);
+      margin-top: 2px;
+    }
 
-        .alert-error {
-            background: rgba(239, 68, 68, 0.2);
-            border: 1px solid #ef4444;
-            color: #ef4444;
-        }
+    .search {
+      margin: 14px 0 10px;
+      position: relative;
+    }
 
-        .config-sections {
-            display: flex;
-            flex-direction: column;
-            gap: 30px;
-        }
+    .search i {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--gray);
+      font-size: 14px;
+      pointer-events: none;
+    }
 
-        .config-section {
-            background: rgba(30, 41, 59, 0.6);
-            border-radius: 10px;
-            padding: 25px;
-            border: 1px solid rgba(100, 116, 139, 0.3);
-        }
+    .search input {
+      width: 100%;
+      padding: 10px 12px 10px 34px;
+      border-radius: 10px;
+      border: 1px solid var(--input-border);
+      background: var(--input-bg);
+      color: #fff;
+      outline: none;
+      font-size: 13px;
+    }
 
-        .section-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(100, 116, 139, 0.3);
-        }
+    .nav {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
 
-        .section-header i {
-            font-size: 20px;
-            color: #3b82f6;
-        }
+    .nav button {
+      border: 1px solid rgba(100,116,139,.25);
+      background: rgba(15,23,42,.35);
+      color: #e2e8f0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: .15s ease;
+      font-weight: 600;
+      font-size: 13px;
+      text-align: left;
+    }
 
-        .section-header h2 {
-            font-size: 1.3rem;
-            color: #ffffff;
-            margin: 0;
-        }
+    .nav button i {
+      color: var(--primary);
+      width: 18px;
+      text-align: center;
+    }
 
-        .form-group {
-            margin-bottom: 20px;
-        }
+    .nav button:hover {
+      background: rgba(15,23,42,.55);
+      border-color: rgba(100,116,139,.45);
+    }
 
-        .form-group label {
-            display: block;
-            color: #e2e8f0;
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
+    .nav button.active {
+      background: rgba(59,130,246,.16);
+      border-color: rgba(59,130,246,.40);
+    }
 
-        .form-group label .hint {
-            color: #64748b;
-            font-weight: 400;
-            font-size: 12px;
-            display: block;
-            margin-top: 3px;
-        }
+    .sidebar .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
 
-        .form-group input,
-        .form-group textarea {
-            width: 100%;
-            padding: 12px 15px;
-            background: rgba(15, 23, 42, 0.8);
-            border: 1px solid rgba(100, 116, 139, 0.5);
-            border-radius: 6px;
-            color: #ffffff;
-            font-size: 14px;
-            font-family: inherit;
-        }
+    .btn-save {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 800;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 13px;
+      transition: .15s ease;
+    }
 
-        .form-group textarea {
-            min-height: 100px;
-            resize: vertical;
-            line-height: 1.5;
-        }
+    .btn-save:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.28);
+    }
 
-        .form-group input:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: #3b82f6;
-            background: rgba(15, 23, 42, 0.9);
-        }
+    .btn-cancel {
+      background: rgba(100, 116, 139, 0.25);
+      color: #e2e8f0;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: none;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 13px;
+      transition: .15s ease;
+    }
 
-        .form-group .char-count {
-            text-align: right;
-            color: #64748b;
-            font-size: 12px;
-            margin-top: 5px;
-        }
+    .btn-cancel:hover {
+      background: rgba(100, 116, 139, 0.45);
+    }
 
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
+    /* Main */
+    .main {
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
 
-        .btn-group-actions {
-            display: flex;
-            gap: 15px;
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(100, 116, 139, 0.3);
-        }
+    #alertContainer { margin-bottom: 6px; }
 
-        .btn-save {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-            padding: 12px 30px;
-            border-radius: 6px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 14px;
-        }
+    .alert {
+      padding: 14px 16px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid transparent;
+      background: rgba(15, 23, 42, 0.5);
+    }
+    .alert.show { display: flex; }
+    .alert-success { border-color: #10b981; color: #10b981; background: rgba(16,185,129,.12); }
+    .alert-error { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,.12); }
 
-        .btn-save:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-        }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 18px;
+    }
 
-        .btn-cancel {
-            background: rgba(100, 116, 139, 0.3);
-            color: #e2e8f0;
-            padding: 12px 30px;
-            border-radius: 6px;
-            border: none;
-            font-weight: 600;
-            cursor: pointer;
-            font-size: 14px;
-        }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(100,116,139,.25);
+    }
 
-        .btn-cancel:hover {
-            background: rgba(100, 116, 139, 0.5);
-        }
+    .panel-header i {
+      color: var(--primary);
+      font-size: 18px;
+    }
 
-        #previewMessage {
-            background: rgba(15, 23, 42, 0.6);
-            padding: 15px;
-            border-radius: 6px;
-            white-space: pre-wrap;
-            font-family: monospace;
-            font-size: 13px;
-            color: #e2e8f0;
-            margin-top: 10px;
-        }
+    .panel-header h2 {
+      font-size: 16px;
+      color: #fff;
+      margin: 0;
+    }
 
-        @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+    .panel-header p {
+      margin-left: auto;
+      color: var(--gray);
+      font-size: 12px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      color: #e2e8f0;
+      font-weight: 700;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+
+    .hint {
+      display: block;
+      margin-top: 4px;
+      color: var(--gray);
+      font-weight: 400;
+      font-size: 12px;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 11px 12px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      border-radius: 10px;
+      color: #ffffff;
+      font-size: 13px;
+      font-family: inherit;
+      outline: none;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    input:focus, textarea:focus {
+      border-color: rgba(59,130,246,.8);
+      background: rgba(15,23,42,.9);
+    }
+
+    .char-count {
+      text-align: right;
+      color: var(--gray);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .preview {
+      background: rgba(15,23,42,.55);
+      padding: 14px;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+      border: 1px solid rgba(100,116,139,.25);
+    }
+
+    /* Tabs */
+    .tab { display: none; }
+    .tab.active { display: block; }
+
+    /* Small helpers */
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid rgba(100,116,139,.25);
+      background: rgba(15,23,42,.35);
+      color: #cbd5e1;
+    }
+
+    .tag i { color: var(--primary); }
+
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { position: relative; top: 0; }
+      .grid-2 { grid-template-columns: 1fr; }
+      .sidebar .actions { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
+
 <body>
-    <div class="config-page">
-        <div class="config-header">
-            <h1>
-                <i class="fas fa-cog"></i>
-                Configuración de Mensajes y Usuarios
-            </h1>
-            <p>Personaliza los mensajes de WhatsApp y la configuración de creación de usuarios</p>
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="icon"><i class="fas fa-cog"></i></div>
+        <div>
+          <h1>Configuración</h1>
+          <p>Mensajes y parámetros</p>
         </div>
+      </div>
 
-        <div id="alertContainer"></div>
+      <div class="search">
+        <i class="fas fa-search"></i>
+        <input id="searchInput" type="text" placeholder="Buscar (ej: cbu, bienvenida, soporte)..." />
+      </div>
 
-        <div class="config-sections">
-            <!-- Mensajes de WhatsApp -->
-            <div class="config-section">
-                <div class="section-header">
-                    <i class="fas fa-comments"></i>
-                    <h2>Mensajes de WhatsApp</h2>
-                </div>
+      <div class="nav">
+        <button class="active" data-tab="tab-mensajes"><i class="fas fa-comments"></i> Mensajes WhatsApp</button>
+        <button data-tab="tab-usuarios"><i class="fas fa-user-cog"></i> Creación de usuarios</button>
+        <button data-tab="tab-deposito"><i class="fas fa-money-bill-wave"></i> Flujo de depósito</button>
+        <button data-tab="tab-avanzado"><i class="fas fa-sliders"></i> Avanzado</button>
+      </div>
 
-                <div class="form-group">
-                    <label>
-                        Mensaje de Bienvenida
-                        <span class="hint">Este es el mensaje que ven los usuarios al iniciar</span>
-                    </label>
-                    <textarea id="welcomeMessage" maxlength="500"></textarea>
-                    <div class="char-count" id="welcomeCount">0 / 500</div>
-                </div>
+      <div class="actions">
+        <button class="btn-save" id="btnSave"><i class="fas fa-save"></i> Guardar</button>
+        <button class="btn-cancel" id="btnCancel"><i class="fas fa-times"></i> Volver</button>
+      </div>
 
-                <div class="form-group">
-                    <label>
-                        Mensaje de Información
-                        <span class="hint">Cuando el usuario pide información sobre Starwin</span>
-                    </label>
-                    <textarea id="infoMessage" maxlength="1000"></textarea>
-                    <div class="char-count" id="infoCount">0 / 1000</div>
-                </div>
+      <div style="margin-top: 12px; display:flex; gap:10px; flex-wrap:wrap;">
+        <span class="tag"><i class="fas fa-shield"></i> Sin tocar comandos</span>
+        <span class="tag"><i class="fas fa-pen"></i> Solo texto</span>
+      </div>
+    </aside>
 
-                <div class="form-group">
-                    <label>
-                        Mensaje de Soporte
-                        <span class="hint">Cuando el usuario solicita asistencia</span>
-                    </label>
-                    <textarea id="supportMessage" maxlength="1000"></textarea>
-                    <div class="char-count" id="supportCount">0 / 1000</div>
-                </div>
+    <!-- MAIN -->
+    <main class="main">
+      <div id="alertContainer"></div>
+
+      <!-- TAB: Mensajes -->
+      <section class="tab active" id="tab-mensajes">
+        <div class="panel">
+          <div class="panel-header">
+            <i class="fas fa-comments"></i>
+            <h2>Mensajes de WhatsApp</h2>
+            <p>Textos visibles al usuario</p>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Bienvenida (parte 1)
+              <span class="hint">Texto principal antes de “Responde con …”</span>
+            </label>
+            <textarea id="welcomeMessage" maxlength="700" data-search="bienvenida welcome menu"></textarea>
+            <div class="char-count" id="welcomeCount">0 / 700</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Bienvenida (línea de opciones)
+              <span class="hint">Ej: Responde con: INFORMACION, CREAR USUARIO o ASISTENCIA</span>
+            </label>
+            <input id="welcomeOptionsLine" maxlength="200" data-search="opciones responde con menu" />
+            <div class="char-count" id="welcomeOptionsCount">0 / 200</div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>
+                Mensaje de Información
+                <span class="hint">Cuando el usuario pide información</span>
+              </label>
+              <textarea id="infoMessage" maxlength="1500" data-search="info informacion"></textarea>
+              <div class="char-count" id="infoCount">0 / 1500</div>
             </div>
 
-            <!-- Configuración de Usuarios -->
-            <div class="config-section">
-                <div class="section-header">
-                    <i class="fas fa-user-cog"></i>
-                    <h2>Configuración de Creación de Usuarios</h2>
-                </div>
-
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>
-                            Contraseña Fija
-                            <span class="hint">Todos los usuarios tendrán esta contraseña</span>
-                        </label>
-                        <input type="text" id="fixedPassword" placeholder="Ej: Hola1234" maxlength="50">
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            Sufijo de Usuario
-                            <span class="hint">Se agrega al final del nombre de usuario</span>
-                        </label>
-                        <input type="text" id="usernameSuffix" placeholder="Ej: _starwin" maxlength="20">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label>
-                        URL del Sitio (para mostrar al usuario)
-                        <span class="hint">Esta URL se muestra en el mensaje de cuenta creada</span>
-                    </label>
-                    <input type="url" id="siteUrl" placeholder="https://ejemplo.com">
-                </div>
+            <div class="form-group">
+              <label>
+                Mensaje de Soporte
+                <span class="hint">Cuando el usuario solicita ayuda</span>
+              </label>
+              <textarea id="supportMessage" maxlength="1500" data-search="soporte ayuda asistencia"></textarea>
+              <div class="char-count" id="supportCount">0 / 1500</div>
             </div>
-
-            <!-- Mensaje de Cuenta Creada -->
-            <div class="config-section">
-                <div class="section-header">
-                    <i class="fas fa-check-circle"></i>
-                    <h2>Mensaje de Cuenta Creada</h2>
-                </div>
-
-                <div class="form-group">
-                    <label>
-                        Texto del Mensaje
-                        <span class="hint">Usa {{username}}, {{password}}, {{url}} como variables. NO uses {{email}}</span>
-                    </label>
-                    <textarea id="createdMessage" maxlength="1000"></textarea>
-                    <div class="char-count" id="createdCount">0 / 1000</div>
-                </div>
-
-                <div class="form-group">
-                    <label style="color: #64748b; font-weight: 400; font-size: 13px;">
-                        <i class="fas fa-info-circle"></i>
-                        Vista previa con datos de ejemplo:
-                    </label>
-                    <div id="previewMessage"></div>
-                </div>
-            </div>
-
-            <!-- Mensajes de Depósito -->
-            <div class="config-section">
-                <div class="section-header">
-                    <i class="fas fa-money-bill-wave"></i>
-                    <h2>Mensajes de Depósito</h2>
-                </div>
-
-                <div class="form-group">
-                    <label>
-                        Mensaje cuando acepta depositar
-                        <span class="hint">Cuando el usuario responde SÍ</span>
-                    </label>
-                    <textarea id="depositYesMessage" maxlength="500"></textarea>
-                    <div class="char-count" id="depositYesCount">0 / 500</div>
-                </div>
-
-                <div class="form-group">
-                    <label>
-                        Mensaje cuando rechaza depositar
-                        <span class="hint">Cuando el usuario responde NO</span>
-                    </label>
-                    <textarea id="depositNoMessage" maxlength="500"></textarea>
-                    <div class="char-count" id="depositNoCount">0 / 500</div>
-                </div>
-            </div>
+          </div>
         </div>
+      </section>
 
-        <!-- BOTONES - ESTOS SON LOS QUE NO SE VEÍAN -->
-        <div class="btn-group-actions">
-            <button class="btn-save" id="btnSave">
-                <i class="fas fa-save"></i>
-                Guardar Cambios
-            </button>
-            <button class="btn-cancel" id="btnCancel">
-                <i class="fas fa-times"></i>
-                Volver al Dashboard
-            </button>
+      <!-- TAB: Usuarios -->
+      <section class="tab" id="tab-usuarios">
+        <div class="panel">
+          <div class="panel-header">
+            <i class="fas fa-user-cog"></i>
+            <h2>Creación de Usuarios</h2>
+            <p>Plantillas y parámetros</p>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>
+                Contraseña fija
+                <span class="hint">Todos los usuarios tendrán esta contraseña</span>
+              </label>
+              <input type="text" id="fixedPassword" placeholder="Ej: Hola1234" maxlength="50" data-search="password contraseña" />
+              <div class="char-count" id="fixedPasswordCount">0 / 50</div>
+            </div>
+
+            <div class="form-group">
+              <label>
+                Sufijo de usuario
+                <span class="hint">Se agrega al final del username</span>
+              </label>
+              <input type="text" id="usernameSuffix" placeholder="Ej: _starwin" maxlength="20" data-search="suffix sufijo username" />
+              <div class="char-count" id="usernameSuffixCount">0 / 20</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              URL del sitio
+              <span class="hint">Se muestra en el mensaje de cuenta creada</span>
+            </label>
+            <input type="url" id="siteUrl" placeholder="https://admin.starwin.plus" data-search="url sitio" />
+            <div class="char-count" id="siteUrlCount">0 / 300</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje de cuenta creada (template)
+              <span class="hint">Variables: {{username}}, {{password}}, {{url}} (no uses {{email}})</span>
+            </label>
+            <textarea id="createdMessage" maxlength="2000" data-search="cuenta creada template username password url"></textarea>
+            <div class="char-count" id="createdCount">0 / 2000</div>
+          </div>
+
+          <div class="form-group">
+            <label style="color: #cbd5e1; font-weight: 600; font-size: 12px;">
+              <i class="fas fa-info-circle"></i> Vista previa (datos de ejemplo)
+            </label>
+            <div id="previewMessage" class="preview"></div>
+          </div>
         </div>
-    </div>
+      </section>
 
-    <script src="config.js"></script>
+      <!-- TAB: Depósito -->
+      <section class="tab" id="tab-deposito">
+        <div class="panel">
+          <div class="panel-header">
+            <i class="fas fa-money-bill-wave"></i>
+            <h2>Flujo de Depósito</h2>
+            <p>Mensajes de pago y comprobante</p>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>
+                Mensaje datos bancarios (parte 1)
+                <span class="hint">Se envía antes del CBU. Podés usar emojis y saltos de línea.</span>
+              </label>
+              <textarea id="bankDetailsMessage" maxlength="1200" data-search="banco datos bancarios titular alias"></textarea>
+              <div class="char-count" id="bankDetailsCount">0 / 1200</div>
+            </div>
+
+            <div class="form-group">
+              <label>
+                CBU (parte 2)
+                <span class="hint">Se envía como mensaje separado</span>
+              </label>
+              <input id="cbuMessage" maxlength="60" data-search="cbu" />
+              <div class="char-count" id="cbuCount">0 / 60</div>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label>
+                Mensaje “enviá el comprobante”
+                <span class="hint">Después de mostrar datos+CBU, el bot pide la foto</span>
+              </label>
+              <textarea id="askProofMessage" maxlength="800" data-search="comprobante foto enviar"></textarea>
+              <div class="char-count" id="askProofCount">0 / 800</div>
+            </div>
+
+            <div class="form-group">
+              <label>
+                Mensaje cuando NO deposita
+                <span class="hint">Incluye “Para mandar tu primera carga escribí: Deposito”</span>
+              </label>
+              <textarea id="depositNoMessage" maxlength="800" data-search="no deposito despues"></textarea>
+              <div class="char-count" id="depositNoCount">0 / 800</div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje al recibir foto (derivación a caja)
+              <span class="hint">Se envía cuando el usuario manda una imagen en WAIT_PROOF</span>
+            </label>
+            <textarea id="proofRedirectMessage" maxlength="2000" data-search="derivo caja linea principal whatsapp comprobante"></textarea>
+            <div class="char-count" id="proofRedirectCount">0 / 2000</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB: Avanzado -->
+      <section class="tab" id="tab-avanzado">
+        <div class="panel">
+          <div class="panel-header">
+            <i class="fas fa-sliders"></i>
+            <h2>Avanzado</h2>
+            <p>Opcional</p>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Nota
+              <span class="hint">Acá podemos sumar más textos editables si el flujo crece (sin tocar comandos).</span>
+            </label>
+            <div class="preview">
+              ✔ Esta pantalla solo edita texto plano.<br/>
+              ✔ Los comandos/intents siguen en el engine.<br/>
+              ✔ Si querés, también podemos hacer “Reset a defaults” por sección.
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="config.js"></script>
 </body>
 </html>

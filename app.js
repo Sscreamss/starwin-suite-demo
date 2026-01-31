@@ -342,6 +342,25 @@ function init() {
         pushLog(null, '[UI] Abriendo dashboard...', 'info');
         window.location.href = 'dashboard.html';
     });    
+    
+    // ✅ NUEVO: Buscador de líneas
+    $('#searchLines')?.addEventListener('input', (e) => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        const rows = $$('.line-row');
+        
+        rows.forEach(row => {
+            const lineId = row.dataset.lineId?.toLowerCase() || '';
+            const pushname = row.querySelector('.line-pushname')?.textContent.toLowerCase() || '';
+            const wid = row.querySelector('.line-wid')?.textContent.toLowerCase() || '';
+            
+            const matches = lineId.includes(searchTerm) || 
+                          pushname.includes(searchTerm) || 
+                          wid.includes(searchTerm);
+            
+            row.style.display = matches ? '' : 'none';
+        });
+    });
+    
     $('#btnRenewClearance')?.addEventListener('click', async () => {
         pushLog(null, '[UI] Renovando Cloudflare...', 'info');
         const btn = $('#btnRenewClearance');
