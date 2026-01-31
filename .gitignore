@@ -1,53 +1,136 @@
-# Dependencies
-node_modules/
+# ============================================
+# GITIGNORE PARA BOTDASH
+# ============================================
 
+# ============================================
+# CREDENCIALES Y DATOS SENSIBLES (CRÍTICO)
+# ============================================
+# Credenciales de Google Cloud
+credentials/
+credenciales.json
+**/credenciales.json
+
+# Configuración con datos sensibles
+config/bot-config.json
+config/sheets-config.json
+
+# Datos de usuarios y sesiones
+data/
+sessions/
+*.session
+*.wwebjs_auth/
+*.wwebjs_cache/
+
+# ============================================
+# NODE MODULES
+# ============================================
+node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============================================
+# ELECTRON BUILD
+# ============================================
+dist/
+release/
+build/appx/
+build/win-unpacked/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+
+# ============================================
+# LOGS Y TEMPORALES
+# ============================================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+*.tmp
+
+# ============================================
+# PUPPETEER / WHATSAPP
+# ============================================
+.wwebjs_auth/
+.wwebjs_cache/
+.local-chromium/
+chromium/
+
+# ============================================
+# SISTEMA OPERATIVO
+# ============================================
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+
+# ============================================
+# EDITORES / IDEs
+# ============================================
+# VSCode
+.vscode/
+*.code-workspace
+
+# JetBrains (WebStorm, IntelliJ, etc)
+.idea/
+*.iml
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ============================================
+# OTROS
+# ============================================
 # Environment variables
 .env
 .env.local
 .env.*.local
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Runtime data
-pids/
-*.pid
-*.seed
-*.pid.lock
-
-# OS files
-.DS_Store
-Thumbs.db
-.windows/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# Build and dist
-dist/
-build/
-out/
-
-# Electron
-release/
-
 # Cache
 .cache/
-.npm/
+*.cache
 
-# Sessions and temporary files
-sessions/
+# Testing
+coverage/
+.nyc_output/
+
+# Backup files
+*.bak
+*.backup
+*_backup
+
+# ============================================
+# ARCHIVOS DE PROYECTO ESPECÍFICOS
+# ============================================
+# Tus archivos de prueba
+test.js
+prueba.js
 temp/
-*.tmp
+tmp/
 
-# Local configuration
-config.local.js
-.local/
+# ============================================
+# MANTENER ESTRUCTURA DE CARPETAS VACÍAS
+# ============================================
+# Esto asegura que las carpetas se creen pero sin contenido sensible
+!credentials/.gitkeep
+!config/.gitkeep
+!data/.gitkeep
