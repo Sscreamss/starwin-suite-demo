@@ -1,14 +1,22 @@
 {
-  "name": "starwin-suite-demo",
-  "version": "0.1.0",
+  "name": "starwin-suite-dashboard",
+  "version": "1.0.0",
   "main": "main.js",
-  "private": true,
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dev": "electron . --debug"
   },
   "dependencies": {
-    "electron": "^30.0.0",
-    "qrcode": "^1.5.4",
-    "whatsapp-web.js": "github:DnTora/whatsapp-web.js#main-fork"
+    "axios": "^1.6.0",
+    "axios-cookiejar-support": "^4.0.0",
+    "electron": "^28.0.0",
+    "googleapis": "^126.0.0",
+    "puppeteer-core": "^21.0.0",
+    "qrcode-terminal": "^0.12.0",
+    "tough-cookie": "^4.1.3",
+    "whatsapp-web.js": "github:timothydillan/whatsapp-web.js#fix/duplicate-events-and-bindings"
+  },
+  "devDependencies": {
+    "electron-rebuild": "^3.2.9"
   }
 }

@@ -1,0 +1,57 @@
+{
+  "starwin": {
+    "baseUrl": "https://admin.starwin.plus",
+    "cfClearance": "TU_COOKIE_CF_CLEARANCE_AQUI",
+    "cfClearanceDomain": ".starwin.plus",
+    "cfClearancePath": "/",
+    "cfClearanceUpdated": "",
+    "cfClearanceExpires": "",
+    
+    "adminUser": "Prueba123",
+    "adminPass": "Prueba123",
+    "domain": "admin.starwin.plus",
+    
+    "csrfPath": "/api/sanctum/csrf-cookie",
+    "loginPath": "/api/admin/login",
+    "createUserPath": "/api/admin/user/register",
+    
+    "userType": 13,
+    "clientId": 40000004,
+    "currencyId": 8,
+    "infiniteagent": true
+  },
+  
+  "usernameSuffix": "_starwin",
+  "fixedPassword": "Hola1234",
+  "url": "https://admin.starwin.plus",
+  
+  "welcome": {
+    "cooldownSeconds": 30
+  },
+  
+  "menu": {
+    "welcome": "¡Bienvenido a Starwin! ¿En qué puedo ayudarte?\n\nResponde con: INFORMACION, CREAR USUARIO o ASISTENCIA"
+  },
+  
+  "info": {
+    "text": "Somos Starwin, tu plataforma de apuestas deportivas de confianza.\n\n🎯 Apuestas en vivo\n⚽ Deportes variados\n💰 Retiros rápidos\n🎁 Bonos exclusivos\n\n¡Regístrate ahora y obtén tu bono de bienvenida!"
+  },
+  
+  "support": {
+    "text": "📞 Soporte 24/7\n\n¿Necesitas ayuda? Nuestro equipo está disponible para asistirte.\n\nContacta a: soporte@starwin.plus\n\nHorario: Lunes a Domingo, 24 horas"
+  },
+  
+  "createUser": {
+    "askName": "Por favor, envíame tu nombre completo (solo letras y espacios):",
+    "invalidName": "❌ Nombre inválido. Debe tener entre 2 y 30 caracteres, solo letras y espacios.",
+    "creating": "⏳ Creando tu usuario en Starwin...",
+    "createdTemplate": "✅ ¡Tu cuenta ha sido creada!\n\n👤 Usuario: {{username}}\n📧 Email: {{email}}\n🔑 Contraseña: {{password}}\n🌐 Sitio: {{url}}\n\n¡Ya puedes ingresar y empezar a jugar!",
+    "askDeposit": "¿Deseas realizar un depósito ahora? Responde SI o NO",
+    "depositYes": "💰 Perfecto, un operador se contactará contigo en breve para procesar tu depósito.\n\n¡Gracias por confiar en Starwin!",
+    "depositNo": "👍 No hay problema. Puedes depositar cuando quieras desde tu cuenta.\n\n¡Nos vemos en el juego!"
+  },
+  
+  "safety": {
+    "rateLimitSeconds": 2
+  }
+}

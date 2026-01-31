@@ -1,64 +1,66 @@
 // bot/engine.js
 class BotEngine {
-  constructor({ configStore, sessionStore, userCreator, onSendMessage, onLog }) {
+  constructor({ configStore, sessionStore, userCreator, cfMaintainer, sheetsLogger, onSendMessage, onLog }) {
     this.configStore = configStore;
     this.sessionStore = sessionStore;
     this.userCreator = userCreator;
+    this.cfMaintainer = cfMaintainer;
+    this.sheetsLogger = sheetsLogger;  // ← AGREGADO PARA SHEETS
     this.onSendMessage = onSendMessage;
     this.onLog = onLog;
   }
 
   async handleIncoming({ lineId, from, text, ts }) {
-    console.log(`[ENGINE] handleIncoming llamado: lineId=${lineId}, from=${from}, text="${text}"`);
-    
-    const cfg = this.configStore.get();
-    const msg = (text || "").trim();
-    if (!msg) {
-      console.log(`[ENGINE] Mensaje vacío, retornando`);
-      return;
+    console.log(`[ENGINE] handleIncoming: lineId=${lineId}, from=${from}, text="${text}"`);
+
+    // Primero verificar estado de Cloudflare
+    const cfStatus = this.cfMaintainer.getStatus();
+    if (cfStatus.needsRenewal && cfStatus.priority === "HIGH") {
+      this._log("CF_STATUS_WARNING", {
+        lineId,
+        from,
+        status: cfStatus.status,
+        reason: cfStatus.reason,
+        message: "Cloudflare necesita renovación urgente"
+      });
     }
 
-    // crear/obtener sesión
-    const session = this.sessionStore.upsert(lineId, from, (s) => s);
+    const cfg = this.configStore.get();
+    const msg = (text || "").trim();
+    if (!msg) return;
 
-    // Chequear si sesión lleva >2 horas sin actividad → resetear
+    this.sessionStore.upsert(lineId, from, (s) => s);
     this.sessionStore.resetIfInactive(lineId, from, 2);
-    
-    // Obtener sesión actualizada (post-reset si aplica)
     const sessionAfterCheck = this.sessionStore.get(lineId, from);
 
-    // ✅ Normalizar: sin acentos, mayúsculas, espacios extras
     const normalized = msg
       .toUpperCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .trim();
 
-    console.log(`[DEBUG] Mensaje original: "${msg}" -> Normalizado: "${normalized}"`);
+    const isWaitingForInput =
+      sessionAfterCheck.state === "WAIT_NAME" || sessionAfterCheck.state === "WAIT_DEPOSIT";
 
-    // rate-limit SOLO para mensajes no-comando (spam prevention)
-    // NO aplicar rate-limit si estamos esperando input (WAIT_NAME, WAIT_DEPOSIT)
-    const isWaitingForInput = sessionAfterCheck.state === "WAIT_NAME" || sessionAfterCheck.state === "WAIT_DEPOSIT";
-    
-    const isKnownCommand = 
-      normalized === "MENU" || 
-      normalized === "REINICIAR" || 
+    const isKnownCommand =
+      normalized === "MENU" ||
+      normalized === "REINICIAR" ||
       normalized === "CANCELAR" ||
+      normalized === "INFO" ||
       normalized.includes("INFORMACION") ||
       normalized.includes("ASISTENCIA") ||
-      normalized.includes("CREAR USUARIO");
-    
+      normalized.includes("AYUDA") ||
+      normalized.includes("SOPORTE") ||
+      normalized.includes("CREAR USUARIO") ||
+      normalized.includes("CREAR") ||
+      normalized === "USUARIO";
+
     if (!isKnownCommand && !isWaitingForInput && (cfg.safety?.rateLimitSeconds || 0) > 0) {
       const now = Date.now();
-      const delta = now - (session.meta.lastActionAt || 0);
-      console.log(`[RATELIMIT] delta=${delta}ms, limit=${cfg.safety.rateLimitSeconds * 1000}ms`);
-      if (delta < (cfg.safety.rateLimitSeconds * 1000)) {
-        console.log(`[RATELIMIT] ¡Bloqueado por rate-limit!`);
-        return;
-      }
+      const delta = now - (sessionAfterCheck.meta.lastActionAt || 0);
+      if (delta < cfg.safety.rateLimitSeconds * 1000) return;
     }
 
-    // comandos globales
     if (normalized === "MENU" || normalized === "REINICIAR" || normalized === "CANCELAR") {
       await this._setState(lineId, from, "MENU");
       await this._sendMenu(lineId, from, cfg, true);
@@ -66,9 +68,7 @@ class BotEngine {
       return;
     }
 
-    // si estamos esperando nombre, lo procesamos primero
     if (sessionAfterCheck.state === "WAIT_NAME") {
-      // Resetear rate-limit para que no bloquee el input del nombre
       this.sessionStore.upsert(lineId, from, (s) => {
         s.meta.lastActionAt = 0;
         return s;
@@ -81,15 +81,30 @@ class BotEngine {
         return;
       }
 
-      // guardo nombre
       this.sessionStore.upsert(lineId, from, (s) => {
         s.data = s.data || {};
         s.data.name = msg;
+        s.data.timestamp = Date.now();
         return s;
       });
 
       await this._reply(lineId, from, cfg.createUser.creating);
       await this._setState(lineId, from, "CREATING_USER");
+
+      // Verificar Cloudflare antes de intentar crear usuario
+      const cfCheck = this.cfMaintainer.checkAndRenewIfNeeded();
+      if (cfCheck.needsRenewal && cfCheck.priority === "HIGH") {
+        await this._reply(lineId, from, "⚠️ El sistema está en mantenimiento. Por favor, intentá de nuevo en unos minutos.");
+        await this._log("CF_BLOCKED_CREATE", {
+          lineId,
+          from,
+          reason: cfCheck.reason,
+          message: "Bloqueado por Cloudflare, necesita renovación urgente"
+        });
+        await this._setState(lineId, from, "MENU");
+        await this._sendMenu(lineId, from, cfg, true);
+        return;
+      }
 
       const res = await this.userCreator.create({
         name: msg,
@@ -97,81 +112,184 @@ class BotEngine {
         fixedPassword: cfg.fixedPassword
       });
 
-      if (!res.ok) {
-        await this._reply(lineId, from, "Hubo un error al crear el usuario. Proba de nuevo mas tarde.");
+    if (!res.ok) {
+        // Mensajes diferentes según el tipo de error
+        let userMessage = "Hubo un error al crear el usuario. Probá de nuevo más tarde.";
+        
+        const errorStr = String(res.error || '');
+        
+        if (res.needRenewCfClearance) {
+          userMessage = "⚠️ El sistema está en mantenimiento. Por favor, intentá de nuevo en unos minutos.";
+          
+          await this._log("CF_NEED_RENEW_CREATE", {
+            lineId,
+            from,
+            hint: "Renovar Cloudflare automáticamente",
+            action: "AUTO_RENEW_TRIGGERED",
+            retryCount: res.retryCount || 0
+          });
+        } else if (errorStr === "Faltan credenciales admin en config") {
+          userMessage = "❌ Error de configuración. Contactá al administrador.";
+        } else if (errorStr.includes("CF_MAX_RETRIES_EXCEEDED")) {
+          userMessage = "⏳ Sistema ocupado. Por favor, intentá más tarde.";
+        } else if (errorStr.includes("CF_BLOCKED")) {
+          userMessage = "🔒 Problema de seguridad detectado. Intenta nuevamente en un momento.";
+        } else if (res.status === 401) {
+          userMessage = "❌ Error de autenticación. Las credenciales de admin son incorrectas.";
+        }
+        
+        await this._reply(lineId, from, userMessage);
+        await this._log("CREATE_ERROR", {
+          lineId,
+          from,
+          needRenewCfClearance: !!res.needRenewCfClearance,
+          status: res.status,
+          code: res.code,
+          error: res.error,
+          data: res.data ? String(res.data).substring(0, 100) : null
+        });
+
         await this._setState(lineId, from, "MENU");
         await this._sendMenu(lineId, from, cfg, true);
-        await this._log("CREATE_ERROR", { lineId, from, err: res.error || "unknown" });
         return;
       }
 
       const out = template(cfg.createUser.createdTemplate, {
         username: res.username,
+        email: res.email || `${res.username}@admin.starwin.plus`,
         password: res.password,
         url: cfg.url
       });
 
       await this._reply(lineId, from, out);
-      await this._log("CREATE_OK", { lineId, from, username: res.username });
+      await this._log("CREATE_OK", { 
+        lineId, 
+        from, 
+        username: res.username,
+        email: res.email,
+        message: "Usuario creado exitosamente" 
+      });
 
-      // Ir a WAIT_DEPOSIT para preguntar sobre cargar saldo
+      // ✅ GUARDAR USUARIO EN GOOGLE SHEETS
+      if (this.sheetsLogger) {
+        const session = this.sessionStore.get(lineId, from);
+        const nombreUsuario = session?.data?.name || 'Desconocido';
+        
+        try {
+          await this.sheetsLogger.logUser({
+            nombre: nombreUsuario,
+            telefono: from,
+            usuario: res.username,
+            password: res.password,
+            linea: lineId,
+            deposito: false
+          });
+          
+          this._log("SHEETS_SAVED", {
+            lineId,
+            from,
+            username: res.username,
+            message: "Usuario guardado en Google Sheets"
+          });
+        } catch (error) {
+          this._log("SHEETS_ERROR", {
+            lineId,
+            from,
+            error: error.message,
+            message: "Error guardando en Google Sheets (no crítico)"
+          });
+        }
+      }
+
       await this._setState(lineId, from, "WAIT_DEPOSIT");
-      console.log(`[DEBUG] cfg.createUser.askDeposit = "${cfg.createUser.askDeposit}"`);
       await this._reply(lineId, from, cfg.createUser.askDeposit);
       return;
     }
 
-    // si estamos esperando respuesta sobre deposito
     if (sessionAfterCheck.state === "WAIT_DEPOSIT") {
-      // Resetear rate-limit para que no bloquee el input SI/NO
       this.sessionStore.upsert(lineId, from, (s) => {
         s.meta.lastActionAt = 0;
         return s;
       });
 
-      if (normalized === "SI" || normalized === "SÍ" || normalized === "S") {
+      const response = normalized;
+      if (response === "SI" || response === "S" || response === "SÍ") {
         await this._reply(lineId, from, cfg.createUser.depositYes);
-        await this._log("DEPOSIT_YES", { lineId, from });
-      } else if (normalized === "NO" || normalized === "N") {
+        await this._log("DEPOSIT_YES", { 
+          lineId, 
+          from,
+          message: "Usuario quiere depositar"
+        });
+        
+        // ✅ ACTUALIZAR DEPÓSITO EN SHEETS
+        if (this.sheetsLogger) {
+          try {
+            await this.sheetsLogger.updateDeposit(from, true);
+          } catch (error) {
+            this._log("SHEETS_UPDATE_ERROR", {
+              lineId,
+              from,
+              error: error.message
+            });
+          }
+        }
+      } else if (response === "NO" || response === "N") {
         await this._reply(lineId, from, cfg.createUser.depositNo);
-        await this._log("DEPOSIT_NO", { lineId, from });
+        await this._log("DEPOSIT_NO", { 
+          lineId, 
+          from,
+          message: "Usuario no quiere depositar"
+        });
+        
+        // ✅ ACTUALIZAR DEPÓSITO EN SHEETS
+        if (this.sheetsLogger) {
+          try {
+            await this.sheetsLogger.updateDeposit(from, false);
+          } catch (error) {
+            this._log("SHEETS_UPDATE_ERROR", {
+              lineId,
+              from,
+              error: error.message
+            });
+          }
+        }
       } else {
-        // respuesta inválida, preguntar de nuevo
         await this._reply(lineId, from, cfg.createUser.askDeposit);
         return;
       }
-      
-      // Marcar sesión como completada
+
       this.sessionStore.upsert(lineId, from, (s) => {
         s.completed = true;
         s.state = "MENU";
+        s.data = s.data || {};
+        s.data.depositResponse = response;
+        s.data.completedAt = Date.now();
         return s;
       });
-      
+
+      // Enviar menú final
+      await this._sendMenu(lineId, from, cfg, true);
       return;
     }
 
-    // ✅ OPCIONES DEL MENU - con tolerancia a acentos y variaciones
-    // INFO / INFORMACIÓN / INFORMACION / INFO
     if (normalized.includes("INFORMACION") || normalized === "INFO") {
-      console.log(`[${lineId}] Usuario pidió INFORMACIÓN`);
-      
-      // Marcar opción como usada
       this.sessionStore.upsert(lineId, from, (s) => {
         s.data = s.data || {};
         s.data.usedOptions = s.data.usedOptions || {};
         s.data.usedOptions.INFORMACION = true;
+        s.data.lastInfoRequest = Date.now();
         return s;
       });
 
       await this._reply(lineId, from, cfg.info.text);
-      await this._reply(lineId, from, "¿Quieres saber algo mas?");
-      
-      // Enviar menú dinámico con opciones restantes
+      await this._reply(lineId, from, "\n¿Querés saber algo más?");
       await this._sendDynamicMenu(lineId, from, cfg);
-      await this._log("FLOW_INFO", { lineId, from });
-      
-      // Resetear rate-limit para que no bloquee siguiente comando
+      await this._log("FLOW_INFO", { 
+        lineId, 
+        from,
+        message: "Información solicitada"
+      });
+
       this.sessionStore.upsert(lineId, from, (s) => {
         s.meta.lastActionAt = 0;
         return s;
@@ -179,26 +297,24 @@ class BotEngine {
       return;
     }
 
-    // ASISTENCIA / AYUDA / SOPORTE
     if (normalized.includes("ASISTENCIA") || normalized.includes("AYUDA") || normalized.includes("SOPORTE")) {
-      console.log(`[${lineId}] Usuario pidió ASISTENCIA`);
-      
-      // Marcar opción como usada
       this.sessionStore.upsert(lineId, from, (s) => {
         s.data = s.data || {};
         s.data.usedOptions = s.data.usedOptions || {};
         s.data.usedOptions.ASISTENCIA = true;
+        s.data.lastSupportRequest = Date.now();
         return s;
       });
 
       await this._reply(lineId, from, cfg.support.text);
-      await this._reply(lineId, from, "¿Quieres saber algo mas?");
-      
-      // Enviar menú dinámico con opciones restantes
+      await this._reply(lineId, from, "\n¿Querés saber algo más?");
       await this._sendDynamicMenu(lineId, from, cfg);
-      await this._log("FLOW_SUPPORT", { lineId, from });
-      
-      // Resetear rate-limit para que no bloquee siguiente comando
+      await this._log("FLOW_SUPPORT", { 
+        lineId, 
+        from,
+        message: "Soporte solicitado"
+      });
+
       this.sessionStore.upsert(lineId, from, (s) => {
         s.meta.lastActionAt = 0;
         return s;
@@ -206,53 +322,49 @@ class BotEngine {
       return;
     }
 
-    // CREAR USUARIO / CREAR / USUARIO
     if (normalized.includes("CREAR USUARIO") || normalized.includes("CREAR") || normalized === "USUARIO") {
-      console.log(`[${lineId}] Usuario pidió CREAR USUARIO`);
-      
-      // Marcar opción como usada
       this.sessionStore.upsert(lineId, from, (s) => {
         s.data = s.data || {};
         s.data.usedOptions = s.data.usedOptions || {};
         s.data.usedOptions.CREAR_USUARIO = true;
+        s.data.creationRequests = (s.data.creationRequests || 0) + 1;
         return s;
       });
-      
+
       await this._setState(lineId, from, "WAIT_NAME");
       await this._reply(lineId, from, cfg.createUser.askName);
-      await this._log("FLOW_CREATE_START", { lineId, from });
+      await this._log("FLOW_CREATE_START", { 
+        lineId, 
+        from,
+        message: "Iniciando creación de usuario"
+      });
       return;
     }
 
-    // ✅ Si no coincide con nada, mostrar menú de nuevo
+    // Si no es un comando conocido, enviar menú
     await this._sendMenu(lineId, from, cfg);
-    await this._log("WELCOME_SENT", { lineId, from, text: msg });
+    await this._log("WELCOME_SENT", { 
+      lineId, 
+      from, 
+      text: msg.substring(0, 50),
+      message: "Mensaje no reconocido, enviando menú"
+    });
   }
 
   async _sendMenu(lineId, to, cfg, force = false) {
     const cooldown = Number(cfg.welcome?.cooldownSeconds || 0);
 
-    // si hay cooldown y no es force, chequeo último envío
     if (!force && cooldown > 0) {
       const s = this.sessionStore.get(lineId, to);
       const last = s?.meta?.lastWelcomeAt || 0;
       const now = Date.now();
-      if (now - last < cooldown * 1000) {
-        console.log(`[${lineId}] Menu cooldown activo, saltando`);
-        return;
-      }
+      if (now - last < cooldown * 1000) return;
     }
 
-    const menuText =
-      `${cfg.menu.welcome}\n\n` +
-      `Responde con: INFORMACION, CREAR USUARIO o ASISTENCIA`;
+    const menuText = cfg.menu.welcome;
 
-    console.log(`[${lineId}] Enviando menu a ${to}`);
-
-    // guardo timestamp de bienvenida
     this.sessionStore.upsert(lineId, to, (s) => {
       s.meta.lastWelcomeAt = Date.now();
-      // si no está en un estado, lo pongo en MENU
       if (!s.state) s.state = "MENU";
       return s;
     });
@@ -263,23 +375,45 @@ class BotEngine {
   async _reply(lineId, to, text) {
     this.sessionStore.upsert(lineId, to, (s) => {
       s.meta.lastActionAt = Date.now();
+      s.meta.messageCount = (s.meta.messageCount || 0) + 1;
       return s;
     });
 
-    await this._log("SEND_ATTEMPT", { lineId, to, preview: String(text).slice(0, 60) });
+    await this._log("SEND_ATTEMPT", { 
+      lineId, 
+      to, 
+      preview: String(text).slice(0, 80),
+      length: text.length,
+      timestamp: Date.now()
+    });
 
     const res = await this.onSendMessage({ lineId, to, text });
 
     if (res?.ok) {
-      await this._log("SEND_OK", { lineId, to, used: res.used || to, fallback: !!res.fallback });
+      await this._log("SEND_OK", { 
+        lineId, 
+        to, 
+        used: res.used || to, 
+        fallback: !!res.fallback,
+        message: "Mensaje enviado exitosamente",
+        timestamp: Date.now()
+      });
     } else {
-      await this._log("SEND_FAIL", { lineId, to, error: res?.error || "unknown" });
+      await this._log("SEND_FAIL", { 
+        lineId, 
+        to, 
+        error: res?.error || "unknown",
+        message: "Error enviando mensaje",
+        timestamp: Date.now()
+      });
     }
   }
 
   async _setState(lineId, chatId, state) {
     this.sessionStore.upsert(lineId, chatId, (s) => {
       s.state = state;
+      s.meta.lastStateChange = Date.now();
+      s.meta.previousState = s.state;
       return s;
     });
   }
@@ -292,28 +426,79 @@ class BotEngine {
   }
 
   async _log(type, payload) {
-    this.onLog?.({ at: new Date().toISOString(), type, ...payload });
+    this.onLog?.({ 
+      at: new Date().toISOString(), 
+      type, 
+      ...payload 
+    });
   }
 
   async _sendDynamicMenu(lineId, to, cfg) {
-    // Obtener sesión para ver qué opciones ya se usaron
     const session = this.sessionStore.get(lineId, to);
     const usedOptions = session?.data?.usedOptions || {};
 
-    // Construir lista de opciones disponibles
     const availableOptions = [];
     if (!usedOptions.INFORMACION) availableOptions.push("INFORMACION");
     if (!usedOptions.ASISTENCIA) availableOptions.push("ASISTENCIA");
     if (!usedOptions.CREAR_USUARIO) availableOptions.push("CREAR USUARIO");
 
-    // Si no hay opciones disponibles, mostrar todas de nuevo
     const options = availableOptions.length > 0 ? availableOptions : ["INFORMACION", "ASISTENCIA", "CREAR USUARIO"];
+    await this._reply(lineId, to, `Responde con: ${options.join(", ")}`);
+  }
 
-    const menuText = `Responde con: ${options.join(", ")}`;
+  async getSystemStatus() {
+    const cfStatus = this.cfMaintainer.getStatus();
+    const sessionCount = this.sessionStore.count();
+    const activeSessions = Object.values(this.sessionStore.cache).filter(s => 
+      s.meta && Date.now() - s.meta.lastActionAt < 3600000
+    ).length;
+    
+    return {
+      cloudflare: {
+        ...cfStatus,
+        isValid: !cfStatus.needsRenewal,
+        hasCookie: cfStatus.hasCookie,
+        lastUpdated: cfStatus.lastUpdated
+      },
+      sessions: {
+        total: sessionCount,
+        active: activeSessions,
+        inactive: sessionCount - activeSessions
+      },
+      userCreator: {
+        cfRetryCount: this.userCreator.cfRetryCount,
+        maxCfRetries: this.userCreator.maxCfRetries,
+        status: this.userCreator.cfRetryCount > 0 ? "RETRYING" : "READY"
+      },
+      engine: {
+        timestamp: new Date().toISOString(),
+        status: "RUNNING"
+      }
+    };
+  }
 
-    console.log(`[${lineId}] Enviando menú dinámico a ${to}: ${options.join(", ")}`);
-
-    await this._reply(lineId, to, menuText);
+  async cleanupOldSessions(hours = 24) {
+    const cutoff = Date.now() - (hours * 60 * 60 * 1000);
+    let cleaned = 0;
+    
+    for (const [key, session] of Object.entries(this.sessionStore.cache)) {
+      const lastAction = session.meta?.lastActionAt || 0;
+      if (lastAction < cutoff) {
+        delete this.sessionStore.cache[key];
+        cleaned++;
+      }
+    }
+    
+    if (cleaned > 0) {
+      this.sessionStore._writeAll();
+      this._log("CLEANUP", {
+        message: `Sesiones limpiadas: ${cleaned}`,
+        hours: hours,
+        remaining: Object.keys(this.sessionStore.cache).length
+      });
+    }
+    
+    return cleaned;
   }
 }
 
@@ -323,8 +508,8 @@ function template(str, vars) {
 
 function isValidName(name) {
   if (!name) return false;
-  if (name.length < 2 || name.length > 30) return false;
-  return /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ ]+$/.test(name);
+  if (name.length < 2 || name.length > 50) return false;
+  return /^[A-Za-zÀÁÉÍÓÚÜÑàáéíóúüñ\s]+$/.test(name);
 }
 
 module.exports = { BotEngine };

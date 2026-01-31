@@ -1,0 +1,17 @@
+{
+  "nombre": "Starwin Users Database",
+  "spreadsheetId": "1Is47SCpG0JfLgztCty72ubLiYWsAPUkdh2_lZffD4uU",
+  "sheetName": "BDD",
+  "range": "A:G",
+  "columnas": {
+    "nombre": "Nombre",
+    "telefono": "Teléfono",
+    "usuario": "Usuario",
+    "password": "Contraseña",
+    "fecha": "Fecha Creación",
+    "linea": "Linea WPP",
+    "deposito": "Depositó"
+  },
+  "columnOrder": ["Nombre", "Teléfono", "Usuario", "Contraseña", "Fecha Creación", "Linea WPP", "Depositó"],
+  "descripcion": "Base de datos de usuarios creados en Starwin"
+}

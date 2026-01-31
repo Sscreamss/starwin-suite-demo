@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starwin Suite Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <i class="fas fa-robot"></i>
+                    <h1>Starwin Suite</h1>
+                </div>
+                <div class="version">v1.0.0</div>
+            </div>
+
+            <div class="system-status">
+                <div class="status-header">
+                    <h3><i class="fas fa-server"></i> Estado del Sistema</h3>
+                </div>
+                <div id="cfStatus" class="cf-status status-loading">
+                    <div class="cf-icon"><i class="fas fa-shield-alt"></i></div>
+                    <div class="cf-text">
+                        <div class="cf-title">Cloudflare</div>
+                        <div class="cf-desc">Cargando...</div>
+                    </div>
+                </div>
+                <div class="stats">
+                    <div class="stat-item">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>Líneas: <strong id="linesCount">0/30</strong></span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-comments"></i>
+                        <span>Sesiones: <strong id="sessionsCount">0</strong></span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-play-circle"></i>
+                        <span>Activas: <strong id="activeLines">0</strong></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-panel">
+                <h3><i class="fas fa-cogs"></i> Controles</h3>
+                <div class="btn-group">
+                    <button id="btnRefresh" class="btn btn-primary">
+                        <i class="fas fa-sync-alt"></i> Refrescar
+                    </button>
+                    <button id="btnDashboard" class="btn btn-primary">
+                        <i class="fas fa-chart-line"></i> Dashboard
+                    </button>
+                </div>
+                <div class="btn-group">
+                    <button id="btnEditMessages" class="btn btn-primary">
+                        <i class="fas fa-edit"></i> Editar Mensajes
+                    </button>
+                    <button id="btnOpenConfig" class="btn btn-secondary">
+                        <i class="fas fa-folder-open"></i> Config
+                    </button>
+                </div>
+                <div class="btn-group">
+                    <button id="btnRenewClearance" class="btn btn-warning">
+                        <i class="fas fa-shield-alt"></i> Renovar CF
+                    </button>
+                    <button id="btnAutoRenew" class="btn btn-secondary">
+                        <i class="fas fa-bolt"></i> Auto Renew
+                    </button>
+                </div>
+                <div class="btn-group">
+                    <button id="btnClearAll" class="btn btn-danger">
+                        <i class="fas fa-trash-alt"></i> Limpiar Logs
+                    </button>
+                </div>
+            </div>
+
+            <div class="lines-list">
+                <div class="lines-header">
+                    <h3><i class="fas fa-list"></i> Líneas (30)</h3>
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="searchLines" placeholder="Buscar línea...">
+                    </div>
+                </div>
+                <div id="lines" class="lines-container">
+                    <!-- Las líneas se cargarán aquí -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Header -->
+            <div class="main-header">
+                <div class="header-title">
+                    <h2><i class="fas fa-terminal"></i> Consolas de Líneas</h2>
+                    <div class="time-display" id="currentTime"></div>
+                </div>
+                <div class="header-actions">
+                    <button id="btnStartAll" class="btn btn-success">
+                        <i class="fas fa-play"></i> Iniciar Todas
+                    </button>
+                    <button id="btnStopAll" class="btn btn-danger">
+                        <i class="fas fa-stop"></i> Detener Todas
+                    </button>
+                </div>
+            </div>
+
+            <!-- Console Tabs -->
+            <div class="console-tabs" id="consoleTabs">
+                <!-- Las pestañas se generarán dinámicamente -->
+            </div>
+
+            <!-- Console Container -->
+            <div class="console-container">
+                <div id="globalConsole" class="console active">
+                    <!-- Logs globales se mostrarán aquí -->
+                </div>
+                <!-- Las consolas individuales se generarán dinámicamente -->
+            </div>
+
+            <!-- QR Modal -->
+            <div id="qrModal" class="modal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>Escanear QR <span id="qrLineId"></span></h3>
+                        <button class="btn-close">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div id="qrImageContainer">
+                            <img id="qrImage" src="" alt="QR Code">
+                        </div>
+                        <p class="qr-instructions">
+                            <i class="fas fa-info-circle"></i> 
+                            Escanea este código QR con WhatsApp Web para conectar la línea
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

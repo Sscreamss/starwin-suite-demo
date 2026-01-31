@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración - Starwin Suite</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --dark: #0f172a;
+            --gray: #64748b;
+            --gray-light: #e2e8f0;
+            --white: #ffffff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .config-page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px;
+        }
+
+        .config-header {
+            margin-bottom: 40px;
+        }
+
+        .config-header h1 {
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .config-header p {
+            color: #64748b;
+        }
+
+        #alertContainer {
+            margin-bottom: 20px;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .alert.show {
+            display: flex;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.2);
+            border: 1px solid #10b981;
+            color: #10b981;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+        }
+
+        .config-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .config-section {
+            background: rgba(30, 41, 59, 0.6);
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .section-header i {
+            font-size: 20px;
+            color: #3b82f6;
+        }
+
+        .section-header h2 {
+            font-size: 1.3rem;
+            color: #ffffff;
+            margin: 0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #e2e8f0;
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-group label .hint {
+            color: #64748b;
+            font-weight: 400;
+            font-size: 12px;
+            display: block;
+            margin-top: 3px;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(100, 116, 139, 0.5);
+            border-radius: 6px;
+            color: #ffffff;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .form-group .char-count {
+            text-align: right;
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .btn-group-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(100, 116, 139, 0.3);
+        }
+
+        .btn-save {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-cancel {
+            background: rgba(100, 116, 139, 0.3);
+            color: #e2e8f0;
+            padding: 12px 30px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .btn-cancel:hover {
+            background: rgba(100, 116, 139, 0.5);
+        }
+
+        #previewMessage {
+            background: rgba(15, 23, 42, 0.6);
+            padding: 15px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 13px;
+            color: #e2e8f0;
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="config-page">
+        <div class="config-header">
+            <h1>
+                <i class="fas fa-cog"></i>
+                Configuración de Mensajes y Usuarios
+            </h1>
+            <p>Personaliza los mensajes de WhatsApp y la configuración de creación de usuarios</p>
+        </div>
+
+        <div id="alertContainer"></div>
+
+        <div class="config-sections">
+            <!-- Mensajes de WhatsApp -->
+            <div class="config-section">
+                <div class="section-header">
+                    <i class="fas fa-comments"></i>
+                    <h2>Mensajes de WhatsApp</h2>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Mensaje de Bienvenida
+                        <span class="hint">Este es el mensaje que ven los usuarios al iniciar</span>
+                    </label>
+                    <textarea id="welcomeMessage" maxlength="500"></textarea>
+                    <div class="char-count" id="welcomeCount">0 / 500</div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Mensaje de Información
+                        <span class="hint">Cuando el usuario pide información sobre Starwin</span>
+                    </label>
+                    <textarea id="infoMessage" maxlength="1000"></textarea>
+                    <div class="char-count" id="infoCount">0 / 1000</div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Mensaje de Soporte
+                        <span class="hint">Cuando el usuario solicita asistencia</span>
+                    </label>
+                    <textarea id="supportMessage" maxlength="1000"></textarea>
+                    <div class="char-count" id="supportCount">0 / 1000</div>
+                </div>
+            </div>
+
+            <!-- Configuración de Usuarios -->
+            <div class="config-section">
+                <div class="section-header">
+                    <i class="fas fa-user-cog"></i>
+                    <h2>Configuración de Creación de Usuarios</h2>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>
+                            Contraseña Fija
+                            <span class="hint">Todos los usuarios tendrán esta contraseña</span>
+                        </label>
+                        <input type="text" id="fixedPassword" placeholder="Ej: Hola1234" maxlength="50">
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            Sufijo de Usuario
+                            <span class="hint">Se agrega al final del nombre de usuario</span>
+                        </label>
+                        <input type="text" id="usernameSuffix" placeholder="Ej: _starwin" maxlength="20">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        URL del Sitio (para mostrar al usuario)
+                        <span class="hint">Esta URL se muestra en el mensaje de cuenta creada</span>
+                    </label>
+                    <input type="url" id="siteUrl" placeholder="https://ejemplo.com">
+                </div>
+            </div>
+
+            <!-- Mensaje de Cuenta Creada -->
+            <div class="config-section">
+                <div class="section-header">
+                    <i class="fas fa-check-circle"></i>
+                    <h2>Mensaje de Cuenta Creada</h2>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Texto del Mensaje
+                        <span class="hint">Usa {{username}}, {{password}}, {{url}} como variables. NO uses {{email}}</span>
+                    </label>
+                    <textarea id="createdMessage" maxlength="1000"></textarea>
+                    <div class="char-count" id="createdCount">0 / 1000</div>
+                </div>
+
+                <div class="form-group">
+                    <label style="color: #64748b; font-weight: 400; font-size: 13px;">
+                        <i class="fas fa-info-circle"></i>
+                        Vista previa con datos de ejemplo:
+                    </label>
+                    <div id="previewMessage"></div>
+                </div>
+            </div>
+
+            <!-- Mensajes de Depósito -->
+            <div class="config-section">
+                <div class="section-header">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <h2>Mensajes de Depósito</h2>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Mensaje cuando acepta depositar
+                        <span class="hint">Cuando el usuario responde SÍ</span>
+                    </label>
+                    <textarea id="depositYesMessage" maxlength="500"></textarea>
+                    <div class="char-count" id="depositYesCount">0 / 500</div>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        Mensaje cuando rechaza depositar
+                        <span class="hint">Cuando el usuario responde NO</span>
+                    </label>
+                    <textarea id="depositNoMessage" maxlength="500"></textarea>
+                    <div class="char-count" id="depositNoCount">0 / 500</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTONES - ESTOS SON LOS QUE NO SE VEÍAN -->
+        <div class="btn-group-actions">
+            <button class="btn-save" id="btnSave">
+                <i class="fas fa-save"></i>
+                Guardar Cambios
+            </button>
+            <button class="btn-cancel" id="btnCancel">
+                <i class="fas fa-times"></i>
+                Volver al Dashboard
+            </button>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+</body>
+</html>
