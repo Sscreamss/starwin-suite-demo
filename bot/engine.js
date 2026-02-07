@@ -5,12 +5,12 @@ class BotEngine {
     this.sessionStore = sessionStore;
     this.userCreator = userCreator;
     this.cfMaintainer = cfMaintainer;
-    this.sheetsLogger = sheetsLogger; // ← AGREGADO PARA SHEETS
+    this.sheetsLogger = sheetsLogger;
     this.onSendMessage = onSendMessage;
     this.onLog = onLog;
   }
 
-  // ✅ Ahora recibe metadata del mensaje (type/hasMedia/mimetype) para manejar WAIT_PROOF con fotos
+  // ✅ Recibe metadata del mensaje (type/hasMedia/mimetype) para manejar WAIT_PROOF con fotos
   async handleIncoming({ lineId, from, text, ts, type = "chat", hasMedia = false, mimetype = null }) {
     console.log(
       `[ENGINE] handleIncoming: lineId=${lineId}, from=${from}, text="${text}", type=${type}, hasMedia=${hasMedia}, mimetype=${mimetype}`
@@ -54,7 +54,11 @@ class BotEngine {
       depositNoMessage:
         "👍 No hay problema. Puedes depositar cuando quieras desde tu cuenta.\n\n" +
         "¡Nos vemos en el juego!\n\n" +
-        "Para mandar tu primera carga escribí: Deposito"
+        "Para mandar tu primera carga escribí: Deposito",
+      // ✅ Etiquetas de cuenta creada (el dato se manda aparte como mensaje separado)
+      createdUserLabel: "👤 Tu usuario es:",
+      createdPassLabel: "🔑 Tu contraseña es:",
+      createdUrlLabel: "🌐 Ingresá acá:"
     };
 
     // ✅ Textos editables desde config
@@ -67,6 +71,10 @@ class BotEngine {
       cu.depositNo ||
       DEFAULTS.depositNoMessage
     ).trim();
+    // ✅ Etiquetas de cuenta creada
+    const createdUserLabel = (cu.createdUserLabel || DEFAULTS.createdUserLabel).trim();
+    const createdPassLabel = (cu.createdPassLabel || DEFAULTS.createdPassLabel).trim();
+    const createdUrlLabel = (cu.createdUrlLabel || DEFAULTS.createdUrlLabel).trim();
 
     const msg = (text || "").trim();
 
@@ -80,7 +88,7 @@ class BotEngine {
     this.sessionStore.resetIfInactive(lineId, from, 2);
     const sessionAfterCheck = this.sessionStore.get(lineId, from);
 
-    // ✅ Opción B: estado dedicado a esperar comprobante
+    // ✅ Estado WAIT_PROOF: esperar comprobante (foto)
     if (sessionAfterCheck.state === "WAIT_PROOF") {
       // Evitar rate limit en este estado (es input esperado)
       this.sessionStore.upsert(lineId, from, (s) => {
@@ -160,27 +168,24 @@ class BotEngine {
       if (delta < cfg.safety.rateLimitSeconds * 1000) return;
     }
 
-    // ✅ MENU / REINICIAR / CANCELAR
+    // ✅ MENU / REINICIAR / CANCELAR → reiniciar flujo de creación
     if (isIntent(normalized, "MENU") || isIntent(normalized, "REINICIAR") || isIntent(normalized, "CANCELAR")) {
-      await this._setState(lineId, from, "MENU");
-      await this._sendMenu(lineId, from, cfg, true);
-      await this._log("CMD_MENU", { lineId, from, text: normalized });
+      await this._setState(lineId, from, "WAIT_NAME");
+      await this._reply(lineId, from, cfg.createUser.askName);
+      await this._log("CMD_RESTART", { lineId, from, text: normalized });
       return;
     }
 
-    // ✅ Comando DEPOSITO (desde menú o cualquier estado que no sea WAIT_NAME)
+    // ✅ Comando DEPOSITO (desde cualquier estado que no sea WAIT_NAME)
     if (isIntent(normalized, "DEPOSITO")) {
       if (sessionAfterCheck.state === "WAIT_NAME") {
-        // Si está pidiendo nombre, no interrumpimos
         await this._reply(lineId, from, cfg.createUser.askName);
         return;
       }
 
-      // ✅ Mensajes desde config
       await this._reply(lineId, from, bankMsg);
       await this._reply(lineId, from, cbuMsg);
 
-      // Pasar a WAIT_PROOF para esperar comprobante (foto)
       this.sessionStore.upsert(lineId, from, (s) => {
         s.completed = false;
         s.state = "WAIT_PROOF";
@@ -199,16 +204,11 @@ class BotEngine {
         text: normalized
       });
 
-      // ✅ ACTUALIZAR DEPÓSITO EN SHEETS
       if (this.sheetsLogger) {
         try {
           await this.sheetsLogger.updateDeposit(from, true);
         } catch (error) {
-          this._log("SHEETS_UPDATE_ERROR", {
-            lineId,
-            from,
-            error: error.message
-          });
+          this._log("SHEETS_UPDATE_ERROR", { lineId, from, error: error.message });
         }
       }
 
@@ -249,8 +249,8 @@ class BotEngine {
           reason: cfCheck.reason,
           message: "Bloqueado por Cloudflare, necesita renovación urgente"
         });
-        await this._setState(lineId, from, "MENU");
-        await this._sendMenu(lineId, from, cfg, true);
+        await this._setState(lineId, from, "WAIT_NAME");
+        await this._reply(lineId, from, cfg.createUser.askName);
         return;
       }
 
@@ -294,19 +294,20 @@ class BotEngine {
           data: res.data ? String(res.data).substring(0, 100) : null
         });
 
-        await this._setState(lineId, from, "MENU");
-        await this._sendMenu(lineId, from, cfg, true);
+        await this._setState(lineId, from, "WAIT_NAME");
+        await this._reply(lineId, from, cfg.createUser.askName);
         return;
       }
 
-      const out = template(cfg.createUser.createdTemplate, {
-        username: res.username,
-        email: res.email || `${res.username}@admin.starwin.plus`,
-        password: res.password,
-        url: cfg.url
-      });
+      // ✅ CUENTA CREADA → Etiqueta + dato como mensajes SEPARADOS (6 mensajes)
+      // Así el usuario puede copiar el dato limpio sin emojis ni texto extra
+      await this._reply(lineId, from, createdUserLabel);    // "👤 Tu usuario es:"
+      await this._reply(lineId, from, res.username);         // "martin4479_starwin"
+      await this._reply(lineId, from, createdPassLabel);     // "🔑 Tu contraseña es:"
+      await this._reply(lineId, from, res.password);          // "Hola1234"
+      await this._reply(lineId, from, createdUrlLabel);      // "🌐 Ingresá acá:"
+      await this._reply(lineId, from, cfg.url);               // "https://admin.starwin.plus"
 
-      await this._reply(lineId, from, out);
       await this._log("CREATE_OK", {
         lineId,
         from,
@@ -361,7 +362,6 @@ class BotEngine {
       const response = normalized;
 
       if (isIntent(response, "YES")) {
-        // ✅ Mensajes desde config
         await this._reply(lineId, from, bankMsg);
         await this._reply(lineId, from, cbuMsg);
 
@@ -394,7 +394,6 @@ class BotEngine {
       }
 
       if (isIntent(response, "NO")) {
-        // ✅ Mensaje desde config
         await this._reply(lineId, from, depositNoMsg);
 
         await this._log("DEPOSIT_NO", {
@@ -420,7 +419,6 @@ class BotEngine {
           return s;
         });
 
-        await this._sendMenu(lineId, from, cfg, true);
         return;
       }
 
@@ -429,95 +427,47 @@ class BotEngine {
       return;
     }
 
-    // ✅ INFO
+    // ✅ INFO → responder info y arrancar creación
     if (isIntent(normalized, "INFO")) {
-      this.sessionStore.upsert(lineId, from, (s) => {
-        s.data = s.data || {};
-        s.data.usedOptions = s.data.usedOptions || {};
-        s.data.usedOptions.INFORMACION = true;
-        s.data.lastInfoRequest = Date.now();
-        return s;
-      });
-
       await this._reply(lineId, from, cfg.info.text);
-      await this._reply(lineId, from, "\n¿Querés saber algo más?");
-      await this._sendDynamicMenu(lineId, from, cfg);
-      await this._log("FLOW_INFO", { lineId, from, message: "Información solicitada" });
-
-      this.sessionStore.upsert(lineId, from, (s) => {
-        s.meta.lastActionAt = 0;
-        return s;
-      });
+      await this._setState(lineId, from, "WAIT_NAME");
+      await this._reply(lineId, from, cfg.createUser.askName);
+      await this._log("FLOW_INFO", { lineId, from, message: "Info enviada, iniciando creación" });
       return;
     }
 
-    // ✅ SOPORTE
+    // ✅ SOPORTE → responder soporte y arrancar creación
     if (isIntent(normalized, "SOPORTE")) {
-      this.sessionStore.upsert(lineId, from, (s) => {
-        s.data = s.data || {};
-        s.data.usedOptions = s.data.usedOptions || {};
-        s.data.usedOptions.ASISTENCIA = true;
-        s.data.lastSupportRequest = Date.now();
-        return s;
-      });
-
       await this._reply(lineId, from, cfg.support.text);
-      await this._reply(lineId, from, "\n¿Querés saber algo más?");
-      await this._sendDynamicMenu(lineId, from, cfg);
-      await this._log("FLOW_SUPPORT", { lineId, from, message: "Soporte solicitado" });
-
-      this.sessionStore.upsert(lineId, from, (s) => {
-        s.meta.lastActionAt = 0;
-        return s;
-      });
+      await this._setState(lineId, from, "WAIT_NAME");
+      await this._reply(lineId, from, cfg.createUser.askName);
+      await this._log("FLOW_SUPPORT", { lineId, from, message: "Soporte enviado, iniciando creación" });
       return;
     }
 
     // ✅ CREAR USUARIO
     if (isIntent(normalized, "CREAR_USUARIO")) {
-      this.sessionStore.upsert(lineId, from, (s) => {
-        s.data = s.data || {};
-        s.data.usedOptions = s.data.usedOptions || {};
-        s.data.usedOptions.CREAR_USUARIO = true;
-        s.data.creationRequests = (s.data.creationRequests || 0) + 1;
-        return s;
-      });
-
       await this._setState(lineId, from, "WAIT_NAME");
       await this._reply(lineId, from, cfg.createUser.askName);
       await this._log("FLOW_CREATE_START", { lineId, from, message: "Iniciando creación de usuario" });
       return;
     }
 
-    // Si no es un comando conocido, enviar menú
-    await this._sendMenu(lineId, from, cfg);
-    await this._log("WELCOME_SENT", {
+    // ✅ Cualquier mensaje no reconocido → iniciar flujo de creación automáticamente
+    await this._setState(lineId, from, "WAIT_NAME");
+    await this._reply(lineId, from, cfg.createUser.askName);
+    await this._log("AUTO_CREATE_START", {
       lineId,
       from,
       text: msg.substring(0, 50),
-      message: "Mensaje no reconocido, enviando menú"
+      message: "Mensaje recibido, iniciando flujo de creación automático"
     });
   }
 
+  // ✅ _sendMenu simplificado (ya no hay menú, siempre pide nombre)
   async _sendMenu(lineId, to, cfg, force = false) {
-    const cooldown = Number(cfg.welcome?.cooldownSeconds || 0);
-
-    if (!force && cooldown > 0) {
-      const s = this.sessionStore.get(lineId, to);
-      const last = s?.meta?.lastWelcomeAt || 0;
-      const now = Date.now();
-      if (now - last < cooldown * 1000) return;
-    }
-
-    const menuText = cfg.menu.welcome;
-
-    this.sessionStore.upsert(lineId, to, (s) => {
-      s.meta.lastWelcomeAt = Date.now();
-      if (!s.state) s.state = "MENU";
-      return s;
-    });
-
-    await this._reply(lineId, to, menuText);
+    await this._setState(lineId, to, "WAIT_NAME");
+    await this._reply(lineId, to, cfg.createUser.askName);
   }
 
   async _reply(lineId, to, text) {
@@ -542,7 +492,7 @@ class BotEngine {
         lineId,
         to,
         used: res.used || to,
-        fallback: !!res.fallback,
+        fallback: !res.fallback,
         message: "Mensaje enviado exitosamente",
         timestamp: Date.now()
       });
@@ -562,7 +512,7 @@ class BotEngine {
       const prev = s.state;
       s.state = state;
       s.meta.lastStateChange = Date.now();
-      s.meta.previousState = prev; // ✅ estado anterior real
+      s.meta.previousState = prev;
       return s;
     });
   }
@@ -580,19 +530,6 @@ class BotEngine {
       type,
       ...payload
     });
-  }
-
-  async _sendDynamicMenu(lineId, to, cfg) {
-    const session = this.sessionStore.get(lineId, to);
-    const usedOptions = session?.data?.usedOptions || {};
-
-    const availableOptions = [];
-    if (!usedOptions.INFORMACION) availableOptions.push("INFORMACION");
-    if (!usedOptions.ASISTENCIA) availableOptions.push("ASISTENCIA");
-    if (!usedOptions.CREAR_USUARIO) availableOptions.push("CREAR USUARIO");
-
-    const options = availableOptions.length > 0 ? availableOptions : ["INFORMACION", "ASISTENCIA", "CREAR USUARIO"];
-    await this._reply(lineId, to, `Responde con: ${options.join(", ")}`);
   }
 
   async getSystemStatus() {
@@ -663,10 +600,6 @@ function normalizeText(input) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-/**
- * - exact: debe ser exactamente ese valor (normalizado)
- * - contains: alcanza con que el mensaje contenga esa frase (normalizada)
- */
 const INTENTS = {
   MENU: {
     exact: ["MENU", "MENÚ", "INICIO", "START", "HOME"],

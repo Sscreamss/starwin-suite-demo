@@ -22,9 +22,14 @@ const DEFAULT_CONFIG = {
     text: "📞 Soporte 24/7\n\n¿Necesitas ayuda? Nuestro equipo está disponible para asistirte.\n\nContacta a: soporte@starwin.plus\n\nHorario: Lunes a Domingo, 24 horas" 
   },
   createUser: {
-    askName: "Por favor, envíame tu nombre completo (solo letras y espacios):",
+    askName: "Buenas, me dirías tu nombre por favor?",
     invalidName: "❌ Nombre inválido. Debe tener entre 2 y 30 caracteres, solo letras y espacios.",
     creating: "⏳ Creando tu usuario en Starwin...",
+    // ✅ Etiquetas de cuenta creada (el dato se manda como mensaje aparte, copiable)
+    createdUserLabel: "👤 Tu usuario es:",
+    createdPassLabel: "🔑 Tu contraseña es:",
+    createdUrlLabel: "🌐 Ingresá acá:",
+    // Se mantiene por retrocompatibilidad
     createdTemplate: "✅ ¡Tu cuenta ha sido creada!\n\n👤 Usuario: {{username}}\n🔑 Contraseña: {{password}}\n🌐 Sitio: {{url}}\n\n¡Ya puedes ingresar y empezar a jugar!",
     askDeposit: "¿Deseas realizar un depósito ahora? Responde SI o NO",
     depositYes: "💰 Perfecto, un operador se contactará contigo en breve para procesar tu depósito.\n\n¡Gracias por confiar en Starwin!",

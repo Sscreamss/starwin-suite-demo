@@ -41,7 +41,6 @@
       align-items: start;
     }
 
-    /* Sidebar */
     .sidebar {
       position: sticky;
       top: 18px;
@@ -52,289 +51,68 @@
       backdrop-filter: blur(8px);
     }
 
-    .brand {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 14px;
-    }
+    .brand { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .brand .icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: rgba(59,130,246,.18); border: 1px solid rgba(59,130,246,.30); color: var(--primary); }
+    .brand h1 { font-size: 16px; line-height: 1.2; color: #fff; margin: 0; }
+    .brand p { font-size: 12px; color: var(--gray); margin-top: 2px; }
 
-    .brand .icon {
-      width: 38px;
-      height: 38px;
-      border-radius: 10px;
-      display: grid;
-      place-items: center;
-      background: rgba(59,130,246,.18);
-      border: 1px solid rgba(59,130,246,.30);
-      color: var(--primary);
-    }
+    .search { margin: 14px 0 10px; position: relative; }
+    .search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray); font-size: 14px; pointer-events: none; }
+    .search input { width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: #fff; outline: none; font-size: 13px; }
 
-    .brand h1 {
-      font-size: 16px;
-      line-height: 1.2;
-      color: #fff;
-      margin: 0;
-    }
+    .nav { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .nav button { border: 1px solid rgba(100,116,139,.25); background: rgba(15,23,42,.35); color: #e2e8f0; padding: 10px 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: .15s ease; font-weight: 600; font-size: 13px; text-align: left; }
+    .nav button i { color: var(--primary); width: 18px; text-align: center; }
+    .nav button:hover { background: rgba(15,23,42,.55); border-color: rgba(100,116,139,.45); }
+    .nav button.active { background: rgba(59,130,246,.16); border-color: rgba(59,130,246,.40); }
 
-    .brand p {
-      font-size: 12px;
-      color: var(--gray);
-      margin-top: 2px;
-    }
+    .sidebar .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .btn-save { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; transition: .15s ease; }
+    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.28); }
+    .btn-cancel { background: rgba(100, 116, 139, 0.25); color: #e2e8f0; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; font-size: 13px; transition: .15s ease; }
+    .btn-cancel:hover { background: rgba(100, 116, 139, 0.45); }
 
-    .search {
-      margin: 14px 0 10px;
-      position: relative;
-    }
-
-    .search i {
-      position: absolute;
-      left: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: var(--gray);
-      font-size: 14px;
-      pointer-events: none;
-    }
-
-    .search input {
-      width: 100%;
-      padding: 10px 12px 10px 34px;
-      border-radius: 10px;
-      border: 1px solid var(--input-border);
-      background: var(--input-bg);
-      color: #fff;
-      outline: none;
-      font-size: 13px;
-    }
-
-    .nav {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-top: 10px;
-    }
-
-    .nav button {
-      border: 1px solid rgba(100,116,139,.25);
-      background: rgba(15,23,42,.35);
-      color: #e2e8f0;
-      padding: 10px 12px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      transition: .15s ease;
-      font-weight: 600;
-      font-size: 13px;
-      text-align: left;
-    }
-
-    .nav button i {
-      color: var(--primary);
-      width: 18px;
-      text-align: center;
-    }
-
-    .nav button:hover {
-      background: rgba(15,23,42,.55);
-      border-color: rgba(100,116,139,.45);
-    }
-
-    .nav button.active {
-      background: rgba(59,130,246,.16);
-      border-color: rgba(59,130,246,.40);
-    }
-
-    .sidebar .actions {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-top: 14px;
-    }
-
-    .btn-save {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      color: white;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: none;
-      font-weight: 800;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      font-size: 13px;
-      transition: .15s ease;
-    }
-
-    .btn-save:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.28);
-    }
-
-    .btn-cancel {
-      background: rgba(100, 116, 139, 0.25);
-      color: #e2e8f0;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: none;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 13px;
-      transition: .15s ease;
-    }
-
-    .btn-cancel:hover {
-      background: rgba(100, 116, 139, 0.45);
-    }
-
-    /* Main */
-    .main {
-      background: transparent;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
+    .main { background: transparent; display: flex; flex-direction: column; gap: 14px; }
     #alertContainer { margin-bottom: 6px; }
-
-    .alert {
-      padding: 14px 16px;
-      border-radius: 10px;
-      margin-bottom: 10px;
-      display: none;
-      align-items: center;
-      gap: 10px;
-      border: 1px solid transparent;
-      background: rgba(15, 23, 42, 0.5);
-    }
+    .alert { padding: 14px 16px; border-radius: 10px; margin-bottom: 10px; display: none; align-items: center; gap: 10px; border: 1px solid transparent; background: rgba(15, 23, 42, 0.5); }
     .alert.show { display: flex; }
     .alert-success { border-color: #10b981; color: #10b981; background: rgba(16,185,129,.12); }
     .alert-error { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,.12); }
 
-    .panel {
-      background: var(--card);
-      border: 1px solid var(--card-border);
-      border-radius: 12px;
-      padding: 18px;
-    }
+    .panel { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; }
+    .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(100,116,139,.25); }
+    .panel-header i { color: var(--primary); font-size: 18px; }
+    .panel-header h2 { font-size: 16px; color: #fff; margin: 0; }
+    .panel-header p { margin-left: auto; color: var(--gray); font-size: 12px; }
 
-    .panel-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 14px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(100,116,139,.25);
-    }
-
-    .panel-header i {
-      color: var(--primary);
-      font-size: 18px;
-    }
-
-    .panel-header h2 {
-      font-size: 16px;
-      color: #fff;
-      margin: 0;
-    }
-
-    .panel-header p {
-      margin-left: auto;
-      color: var(--gray);
-      font-size: 12px;
-    }
-
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px;
-    }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
 
     .form-group { margin-bottom: 14px; }
-    .form-group label {
-      display: block;
-      color: #e2e8f0;
-      font-weight: 700;
-      margin-bottom: 8px;
-      font-size: 13px;
-    }
+    .form-group label { display: block; color: #e2e8f0; font-weight: 700; margin-bottom: 8px; font-size: 13px; }
+    .hint { display: block; margin-top: 4px; color: var(--gray); font-weight: 400; font-size: 12px; }
 
-    .hint {
-      display: block;
-      margin-top: 4px;
-      color: var(--gray);
-      font-weight: 400;
-      font-size: 12px;
-    }
+    input, textarea { width: 100%; padding: 11px 12px; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 10px; color: #ffffff; font-size: 13px; font-family: inherit; outline: none; }
+    textarea { min-height: 110px; resize: vertical; line-height: 1.45; }
+    input:focus, textarea:focus { border-color: rgba(59,130,246,.8); background: rgba(15,23,42,.9); }
 
-    input, textarea {
-      width: 100%;
-      padding: 11px 12px;
-      background: var(--input-bg);
-      border: 1px solid var(--input-border);
-      border-radius: 10px;
-      color: #ffffff;
-      font-size: 13px;
-      font-family: inherit;
-      outline: none;
-    }
+    .char-count { text-align: right; color: var(--gray); font-size: 12px; margin-top: 6px; }
 
-    textarea {
-      min-height: 110px;
-      resize: vertical;
-      line-height: 1.45;
-    }
+    .preview { background: rgba(15,23,42,.55); padding: 14px; border-radius: 10px; white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 12px; border: 1px solid rgba(100,116,139,.25); }
+    .info-box { background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.25); border-radius: 10px; padding: 14px; margin-bottom: 14px; font-size: 13px; color: #94a3b8; line-height: 1.5; }
+    .info-box i { color: var(--primary); margin-right: 6px; }
 
-    input:focus, textarea:focus {
-      border-color: rgba(59,130,246,.8);
-      background: rgba(15,23,42,.9);
-    }
-
-    .char-count {
-      text-align: right;
-      color: var(--gray);
-      font-size: 12px;
-      margin-top: 6px;
-    }
-
-    .preview {
-      background: rgba(15,23,42,.55);
-      padding: 14px;
-      border-radius: 10px;
-      white-space: pre-wrap;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-      border: 1px solid rgba(100,116,139,.25);
-    }
-
-    /* Tabs */
     .tab { display: none; }
     .tab.active { display: block; }
 
-    /* Small helpers */
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      border: 1px solid rgba(100,116,139,.25);
-      background: rgba(15,23,42,.35);
-      color: #cbd5e1;
-    }
-
+    .tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(100,116,139,.25); background: rgba(15,23,42,.35); color: #cbd5e1; }
     .tag i { color: var(--primary); }
 
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { position: relative; top: 0; }
       .grid-2 { grid-template-columns: 1fr; }
+      .grid-3 { grid-template-columns: 1fr; }
       .sidebar .actions { grid-template-columns: 1fr; }
     }
   </style>
@@ -343,7 +121,6 @@
 <body>
   <div class="layout">
 
-    <!-- SIDEBAR -->
     <aside class="sidebar">
       <div class="brand">
         <div class="icon"><i class="fas fa-cog"></i></div>
@@ -355,12 +132,11 @@
 
       <div class="search">
         <i class="fas fa-search"></i>
-        <input id="searchInput" type="text" placeholder="Buscar (ej: cbu, bienvenida, soporte)..." />
+        <input id="searchInput" type="text" placeholder="Buscar (ej: cbu, usuario, soporte)..." />
       </div>
 
       <div class="nav">
-        <button class="active" data-tab="tab-mensajes"><i class="fas fa-comments"></i> Mensajes WhatsApp</button>
-        <button data-tab="tab-usuarios"><i class="fas fa-user-cog"></i> Creación de usuarios</button>
+        <button class="active" data-tab="tab-usuarios"><i class="fas fa-user-cog"></i> Creación de usuarios</button>
         <button data-tab="tab-deposito"><i class="fas fa-money-bill-wave"></i> Flujo de depósito</button>
         <button data-tab="tab-avanzado"><i class="fas fa-sliders"></i> Avanzado</button>
       </div>
@@ -376,66 +152,48 @@
       </div>
     </aside>
 
-    <!-- MAIN -->
     <main class="main">
       <div id="alertContainer"></div>
 
-      <!-- TAB: Mensajes -->
-      <section class="tab active" id="tab-mensajes">
-        <div class="panel">
-          <div class="panel-header">
-            <i class="fas fa-comments"></i>
-            <h2>Mensajes de WhatsApp</h2>
-            <p>Textos visibles al usuario</p>
-          </div>
-
-          <div class="form-group">
-            <label>
-              Bienvenida (parte 1)
-              <span class="hint">Texto principal antes de “Responde con …”</span>
-            </label>
-            <textarea id="welcomeMessage" maxlength="700" data-search="bienvenida welcome menu"></textarea>
-            <div class="char-count" id="welcomeCount">0 / 700</div>
-          </div>
-
-          <div class="form-group">
-            <label>
-              Bienvenida (línea de opciones)
-              <span class="hint">Ej: Responde con: INFORMACION, CREAR USUARIO o ASISTENCIA</span>
-            </label>
-            <input id="welcomeOptionsLine" maxlength="200" data-search="opciones responde con menu" />
-            <div class="char-count" id="welcomeOptionsCount">0 / 200</div>
-          </div>
-
-          <div class="grid-2">
-            <div class="form-group">
-              <label>
-                Mensaje de Información
-                <span class="hint">Cuando el usuario pide información</span>
-              </label>
-              <textarea id="infoMessage" maxlength="1500" data-search="info informacion"></textarea>
-              <div class="char-count" id="infoCount">0 / 1500</div>
-            </div>
-
-            <div class="form-group">
-              <label>
-                Mensaje de Soporte
-                <span class="hint">Cuando el usuario solicita ayuda</span>
-              </label>
-              <textarea id="supportMessage" maxlength="1500" data-search="soporte ayuda asistencia"></textarea>
-              <div class="char-count" id="supportCount">0 / 1500</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- TAB: Usuarios -->
-      <section class="tab" id="tab-usuarios">
+      <!-- TAB: Creación de Usuarios -->
+      <section class="tab active" id="tab-usuarios">
         <div class="panel">
           <div class="panel-header">
             <i class="fas fa-user-cog"></i>
             <h2>Creación de Usuarios</h2>
-            <p>Plantillas y parámetros</p>
+            <p>Flujo automático de registro</p>
+          </div>
+
+          <div class="info-box">
+            <i class="fas fa-info-circle"></i>
+            <strong>Flujo simplificado:</strong> Cuando alguien escribe por primera vez, el bot le pide el nombre directamente y arranca la creación de usuario automáticamente.
+          </div>
+
+          <div class="form-group">
+            <label>
+              Primer mensaje del bot (pedir nombre)
+              <span class="hint">Este es el primer mensaje que recibe cualquier persona. Debe pedir el nombre.</span>
+            </label>
+            <textarea id="askNameMessage" maxlength="500" data-search="nombre primer mensaje bienvenida askname"></textarea>
+            <div class="char-count" id="askNameCount">0 / 500</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje de nombre inválido
+              <span class="hint">Cuando el nombre no cumple el formato</span>
+            </label>
+            <textarea id="invalidNameMessage" maxlength="500" data-search="nombre invalido error"></textarea>
+            <div class="char-count" id="invalidNameCount">0 / 500</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje "creando usuario..."
+              <span class="hint">Se envía mientras se crea la cuenta</span>
+            </label>
+            <input id="creatingMessage" maxlength="200" data-search="creando espera usuario" />
+            <div class="char-count" id="creatingCount">0 / 200</div>
           </div>
 
           <div class="grid-2">
@@ -467,20 +225,61 @@
             <div class="char-count" id="siteUrlCount">0 / 300</div>
           </div>
 
-          <div class="form-group">
-            <label>
-              Mensaje de cuenta creada (template)
-              <span class="hint">Variables: {{username}}, {{password}}, {{url}} (no uses {{email}})</span>
-            </label>
-            <textarea id="createdMessage" maxlength="2000" data-search="cuenta creada template username password url"></textarea>
-            <div class="char-count" id="createdCount">0 / 2000</div>
+          <!-- ✅ Etiquetas de cuenta creada -->
+          <div class="panel-header" style="margin-top: 10px;">
+            <i class="fas fa-paper-plane"></i>
+            <h2>Mensajes de cuenta creada</h2>
+            <p>Etiqueta + dato = 2 mensajes c/u</p>
+          </div>
+
+          <div class="info-box">
+            <i class="fas fa-copy"></i>
+            Cada dato se envía en <strong>2 mensajes separados</strong>: primero la etiqueta (ej: "👤 Tu usuario es:") y después el dato solo (ej: "martin4479_starwin"). Así el usuario puede copiar el dato limpio.
+          </div>
+
+          <div class="grid-3">
+            <div class="form-group">
+              <label>
+                Etiqueta: Usuario
+                <span class="hint">Después se manda el username solo</span>
+              </label>
+              <input id="createdUserLabel" maxlength="200" data-search="cuenta creada username usuario etiqueta label" />
+              <div class="char-count" id="createdUserLabelCount">0 / 200</div>
+            </div>
+
+            <div class="form-group">
+              <label>
+                Etiqueta: Contraseña
+                <span class="hint">Después se manda la password sola</span>
+              </label>
+              <input id="createdPassLabel" maxlength="200" data-search="cuenta creada password contraseña etiqueta label" />
+              <div class="char-count" id="createdPassLabelCount">0 / 200</div>
+            </div>
+
+            <div class="form-group">
+              <label>
+                Etiqueta: Link
+                <span class="hint">Después se manda la URL sola</span>
+              </label>
+              <input id="createdUrlLabel" maxlength="200" data-search="cuenta creada url link sitio etiqueta label" />
+              <div class="char-count" id="createdUrlLabelCount">0 / 200</div>
+            </div>
           </div>
 
           <div class="form-group">
             <label style="color: #cbd5e1; font-weight: 600; font-size: 12px;">
-              <i class="fas fa-info-circle"></i> Vista previa (datos de ejemplo)
+              <i class="fas fa-eye"></i> Vista previa (datos de ejemplo)
             </label>
-            <div id="previewMessage" class="preview"></div>
+            <div id="previewMessages" class="preview"></div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Pregunta de depósito
+              <span class="hint">Se envía después de crear la cuenta. El usuario responde SI o NO.</span>
+            </label>
+            <textarea id="askDepositMessage" maxlength="500" data-search="deposito preguntar si no"></textarea>
+            <div class="char-count" id="askDepositCount">0 / 500</div>
           </div>
         </div>
       </section>
@@ -517,7 +316,7 @@
           <div class="grid-2">
             <div class="form-group">
               <label>
-                Mensaje “enviá el comprobante”
+                Mensaje "enviá el comprobante"
                 <span class="hint">Después de mostrar datos+CBU, el bot pide la foto</span>
               </label>
               <textarea id="askProofMessage" maxlength="800" data-search="comprobante foto enviar"></textarea>
@@ -527,7 +326,7 @@
             <div class="form-group">
               <label>
                 Mensaje cuando NO deposita
-                <span class="hint">Incluye “Para mandar tu primera carga escribí: Deposito”</span>
+                <span class="hint">Incluye "Para mandar tu primera carga escribí: Deposito"</span>
               </label>
               <textarea id="depositNoMessage" maxlength="800" data-search="no deposito despues"></textarea>
               <div class="char-count" id="depositNoCount">0 / 800</div>
@@ -556,13 +355,31 @@
 
           <div class="form-group">
             <label>
+              Mensaje de Información
+              <span class="hint">Cuando el usuario escribe INFO / INFORMACION</span>
+            </label>
+            <textarea id="infoMessage" maxlength="1500" data-search="info informacion"></textarea>
+            <div class="char-count" id="infoCount">0 / 1500</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje de Soporte
+              <span class="hint">Cuando el usuario escribe SOPORTE / AYUDA</span>
+            </label>
+            <textarea id="supportMessage" maxlength="1500" data-search="soporte ayuda asistencia"></textarea>
+            <div class="char-count" id="supportCount">0 / 1500</div>
+          </div>
+
+          <div class="form-group">
+            <label>
               Nota
-              <span class="hint">Acá podemos sumar más textos editables si el flujo crece (sin tocar comandos).</span>
+              <span class="hint">Info del flujo actual</span>
             </label>
             <div class="preview">
-              ✔ Esta pantalla solo edita texto plano.<br/>
-              ✔ Los comandos/intents siguen en el engine.<br/>
-              ✔ Si querés, también podemos hacer “Reset a defaults” por sección.
+              ✔ Flujo: mensaje → pedir nombre → crear usuario → etiqueta + dato (×3) → preguntar depósito.<br/>
+              ✔ Cada dato (usuario, contraseña, link) se envía como mensaje separado para copiar/pegar.<br/>
+              ✔ Los comandos/intents siguen en el engine.
             </div>
           </div>
         </div>
