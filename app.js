@@ -16,7 +16,14 @@ const state = {
     },
     activeConsole: 'global',
     cfStatus: null,
-    qrModal: null
+    qrModal: null,
+    // ✅ NUEVO: Estado del timer de auto-renew
+    cfTimer: {
+        intervalMinutes: 15,
+        secondsRemaining: 0,
+        tickInterval: null,
+        isRenewing: false
+    }
 };
 
 function escapeHtml(s) {
@@ -60,11 +67,9 @@ function renderAllConsoles() {
 }
 
 function switchConsole(consoleId) {
-    // Desactivar todas las consolas
     $$('.console').forEach(el => el.classList.remove('active'));
     $$('.tab').forEach(el => el.classList.remove('active'));
     
-    // Activar la consola seleccionada
     $(`#console-${consoleId}`)?.classList.add('active');
     $(`#tab-${consoleId}`)?.classList.add('active');
     
@@ -176,40 +181,33 @@ function renderLines() {
             </div>
         `;
         
-        // Event listeners para botones de la línea
-        row.querySelectorAll('button').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const lineId = btn.dataset.line;
-                const action = btn.dataset.action;
-                
-                if (action === 'start' || action === 'stop') {
-                    await handleLineAction(lineId, action);
-                } else if (btn.classList.contains('btn-console')) {
-                    switchConsole(lineId);
-                } else if (btn.classList.contains('btn-qr')) {
-                    showQR(lineId);
-                }
-            });
-        });
-        
-        // Click en la línea completa
-        row.addEventListener('click', (e) => {
-            if (!e.target.closest('button')) {
-                switchConsole(line.lineId);
-            }
-        });
-        
         container.appendChild(row);
     }
+    
+    // Event delegation para botones
+    container.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        
+        const lineId = btn.dataset.line;
+        if (!lineId) return;
+        
+        if (btn.dataset.action) {
+            await handleLineAction(lineId, btn.dataset.action);
+        } else if (btn.classList.contains('btn-console')) {
+            switchConsole(lineId);
+        } else if (btn.classList.contains('btn-qr')) {
+            showQR(lineId);
+        }
+    });
 }
 
 async function handleLineAction(lineId, action) {
-    const btn = $(`button[data-line="${lineId}"][data-action="${action}"]`);
+    const btn = document.querySelector(`button[data-line="${lineId}"][data-action]`);
     if (!btn) return;
     
-    btn.disabled = true;
     const originalText = btn.innerHTML;
+    btn.disabled = true;
     btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${action === 'start' ? 'Iniciando...' : 'Deteniendo...'}`;
     
     try {
@@ -299,6 +297,96 @@ function showQR(lineId) {
     $('#qrModal').classList.add('active');
 }
 
+// ============================================
+// ✅ NUEVO: Timer de Auto-Renew CF
+// ============================================
+
+function formatCountdown(totalSeconds) {
+    if (totalSeconds <= 0) return "00:00";
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function startCfCountdown(intervalMinutes) {
+    // Limpiar intervalo anterior
+    if (state.cfTimer.tickInterval) {
+        clearInterval(state.cfTimer.tickInterval);
+    }
+
+    state.cfTimer.intervalMinutes = intervalMinutes;
+    state.cfTimer.secondsRemaining = intervalMinutes * 60;
+    state.cfTimer.isRenewing = false;
+
+    const countdownEl = $('#cfCountdown');
+    const statusEl = $('#cfTimerStatus');
+    const timerContainer = $('#cfAutoRenewTimer');
+
+    if (!countdownEl || !statusEl) return;
+
+    // Actualizar UI cada segundo
+    state.cfTimer.tickInterval = setInterval(() => {
+        if (state.cfTimer.isRenewing) return; // No decrementar mientras renueva
+
+        state.cfTimer.secondsRemaining--;
+
+        if (state.cfTimer.secondsRemaining <= 0) {
+            state.cfTimer.secondsRemaining = 0;
+        }
+
+        countdownEl.textContent = formatCountdown(state.cfTimer.secondsRemaining);
+
+        // Cambiar color según tiempo restante
+        if (state.cfTimer.secondsRemaining <= 60) {
+            timerContainer?.classList.add('timer-urgent');
+            timerContainer?.classList.remove('timer-warning');
+            statusEl.textContent = "Renovando pronto...";
+        } else if (state.cfTimer.secondsRemaining <= 180) {
+            timerContainer?.classList.add('timer-warning');
+            timerContainer?.classList.remove('timer-urgent');
+            statusEl.textContent = "Próximamente";
+        } else {
+            timerContainer?.classList.remove('timer-warning', 'timer-urgent');
+            statusEl.textContent = `Cada ${state.cfTimer.intervalMinutes} min`;
+        }
+    }, 1000);
+
+    // Render inicial
+    countdownEl.textContent = formatCountdown(state.cfTimer.secondsRemaining);
+    statusEl.textContent = `Cada ${intervalMinutes} min`;
+}
+
+function setCfTimerRenewing(isRenewing) {
+    state.cfTimer.isRenewing = isRenewing;
+    const countdownEl = $('#cfCountdown');
+    const statusEl = $('#cfTimerStatus');
+    const timerContainer = $('#cfAutoRenewTimer');
+
+    if (isRenewing) {
+        if (countdownEl) countdownEl.textContent = "⟳";
+        if (statusEl) statusEl.textContent = "Renovando...";
+        timerContainer?.classList.add('timer-renewing');
+    } else {
+        timerContainer?.classList.remove('timer-renewing');
+    }
+}
+
+async function initCfTimer() {
+    try {
+        const intervalMinutes = await window.api.cfGetAutoRenewInterval();
+        const input = $('#cfIntervalInput');
+        if (input) input.value = intervalMinutes;
+        startCfCountdown(intervalMinutes);
+    } catch (err) {
+        // Fallback a 15 minutos
+        startCfCountdown(15);
+    }
+}
+
+// ============================================
+// INIT
+// ============================================
+
 function init() {
     // Inicializar modal QR
     state.qrModal = $('#qrModal');
@@ -332,18 +420,17 @@ function init() {
         await window.api.openConfigFolder();
     });
     
-    // ✅ NUEVO: Botón Editar Mensajes
     $("#btnEditMessages")?.addEventListener("click", () => {
         pushLog(null, "[UI] Abriendo editor de mensajes...", "info");
         window.location.href = "config.html";
     });
-    // ✅ NUEVO: Botón Dashboard
+
     $('#btnDashboard')?.addEventListener('click', () => {
         pushLog(null, '[UI] Abriendo dashboard...', 'info');
         window.location.href = 'dashboard.html';
     });    
     
-    // ✅ NUEVO: Buscador de líneas
+    // Buscador de líneas
     $('#searchLines')?.addEventListener('input', (e) => {
         const searchTerm = e.target.value.toLowerCase().trim();
         const rows = $$('.line-row');
@@ -432,6 +519,41 @@ function init() {
             await new Promise(resolve => setTimeout(resolve, 500));
         }
     });
+
+    // ✅ NUEVO: Botón guardar intervalo de auto-renew
+    $('#btnSaveInterval')?.addEventListener('click', async () => {
+        const input = $('#cfIntervalInput');
+        const minutes = parseInt(input?.value) || 15;
+        const btn = $('#btnSaveInterval');
+        
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        
+        try {
+            const res = await window.api.cfSetAutoRenewInterval(minutes);
+            if (res?.ok) {
+                pushLog(null, `[UI] ✅ Intervalo de renovación cambiado a ${res.interval} minutos`, 'success');
+                input.value = res.interval;
+                // El timer se reinicia automáticamente via el evento cf:timer-reset
+            } else {
+                pushLog(null, '[UI] ❌ Error cambiando intervalo', 'error');
+            }
+        } catch (error) {
+            pushLog(null, `[UI] ❌ Error: ${error.message}`, 'error');
+        } finally {
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check"></i>';
+            }, 1000);
+        }
+    });
+
+    // También guardar con Enter
+    $('#cfIntervalInput')?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            $('#btnSaveInterval')?.click();
+        }
+    });
     
     // Configurar event listeners del backend
     window.api.onLineQr((lineId, qrCode) => {
@@ -463,6 +585,32 @@ function init() {
         
         pushLog(lineId, `[${type}] ${message}`, logType);
     });
+
+    // ✅ NUEVO: Eventos de auto-renew CF
+    window.api.onCfAutoRenewed?.((data) => {
+        if (data.ok) {
+            pushLog(null, '[AUTO] ✅ CF renovado automáticamente', 'success');
+            refreshCfStatus();
+        }
+    });
+
+    window.api.onCfTimerReset?.((data) => {
+        startCfCountdown(data.intervalMinutes);
+    });
+
+    window.api.onCfTimerConfig?.((data) => {
+        const input = $('#cfIntervalInput');
+        if (input) input.value = data.intervalMinutes;
+        startCfCountdown(data.intervalMinutes);
+    });
+
+    window.api.onCfAutoRenewStatus?.((data) => {
+        if (data.status === 'renewing') {
+            setCfTimerRenewing(true);
+        } else {
+            setCfTimerRenewing(false);
+        }
+    });
     
     // Inicializar tiempo
     function updateTime() {
@@ -475,6 +623,7 @@ function init() {
     // Inicializar aplicación
     refreshLines();
     refreshCfStatus();
+    initCfTimer(); // ✅ NUEVO: Inicializar timer
     
     // Auto-refresh cada 30 segundos
     setInterval(() => {

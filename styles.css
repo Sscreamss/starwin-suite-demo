@@ -714,3 +714,162 @@ body {
 .control-panel .collapsible-content {
     padding: 0 20px 20px 20px;
 }
+
+/* Timer Container */
+.auto-renew-timer {
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    border-radius: var(--border-radius);
+    padding: 12px 14px;
+    margin-bottom: 15px;
+    transition: all 0.3s ease;
+}
+
+.auto-renew-timer .timer-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--gray);
+    font-weight: 600;
+}
+
+.auto-renew-timer .timer-header i {
+    color: var(--primary);
+    font-size: 14px;
+}
+
+.auto-renew-timer .timer-display {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.auto-renew-timer .countdown {
+    font-family: 'Courier New', Monaco, Consolas, monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: 2px;
+    line-height: 1;
+}
+
+.auto-renew-timer .timer-status {
+    font-size: 11px;
+    color: var(--gray);
+    font-weight: 500;
+}
+
+/* Config row */
+.auto-renew-timer .timer-config {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(100, 116, 139, 0.2);
+}
+
+.auto-renew-timer .timer-config label {
+    font-size: 11px;
+    color: var(--gray);
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+.auto-renew-timer .interval-input {
+    width: 55px;
+    padding: 4px 6px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid rgba(100, 116, 139, 0.4);
+    border-radius: 6px;
+    color: var(--white);
+    font-size: 12px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.auto-renew-timer .interval-input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.auto-renew-timer .btn-interval-save {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: var(--success);
+    border-radius: 6px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auto-renew-timer .btn-interval-save:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.35);
+    transform: translateY(-1px);
+}
+
+.auto-renew-timer .btn-interval-save:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Timer states */
+.auto-renew-timer.timer-warning {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.auto-renew-timer.timer-warning .countdown {
+    color: var(--warning);
+}
+
+.auto-renew-timer.timer-warning .timer-header i {
+    color: var(--warning);
+}
+
+.auto-renew-timer.timer-urgent {
+    border-color: rgba(239, 68, 68, 0.4);
+    background: rgba(239, 68, 68, 0.08);
+    animation: timer-pulse 1.5s ease-in-out infinite;
+}
+
+.auto-renew-timer.timer-urgent .countdown {
+    color: var(--danger);
+}
+
+.auto-renew-timer.timer-urgent .timer-header i {
+    color: var(--danger);
+}
+
+.auto-renew-timer.timer-renewing {
+    border-color: rgba(59, 130, 246, 0.5);
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.auto-renew-timer.timer-renewing .countdown {
+    color: var(--primary);
+    font-size: 24px;
+    animation: spin-text 1s linear infinite;
+}
+
+.auto-renew-timer.timer-renewing .timer-status {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+@keyframes timer-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+@keyframes spin-text {
+    0% { opacity: 1; }
+    50% { opacity: 0.4; }
+    100% { opacity: 1; }
+}

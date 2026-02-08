@@ -8,16 +8,18 @@ const { UserCreator } = require("./bot/userCreator");
 const { BotEngine } = require("./bot/engine");
 const { CFMaintainer } = require("./bot/cfMaintainer");
 const { LineManager } = require("./whatsapp/lineManager");
-const { SheetsLogger } = require("./bot/sheetsLogger"); // ✅ AGREGADO
+const { SheetsLogger } = require("./bot/sheetsLogger");
 
 let mainWindow = null;
 let cfMaintainer = null;
 let lineManager = null;
 let botEngine = null;
 let puppeteerBrowser = null;
-let puppeteerPage = null; // ✅ NUEVO: Guardar la página activa
-let userCreator = null; // ✅ NUEVO: Mover a global para poder actualizarla
-let sheetsLogger = null; // ✅ AGREGADO: SheetsLogger global
+let puppeteerPage = null;
+let userCreator = null;
+let sheetsLogger = null;
+let autoRenewInProgress = false; // ✅ NUEVO: Lock para evitar renovaciones simultáneas
+let autoRenewIntervalRef = null; // ✅ NUEVO: Referencia al intervalo para poder reiniciarlo
 
 function sendLog(payload) {
   try {
@@ -84,7 +86,6 @@ async function renewStarwinClearanceWithExtension(configStore) {
       headless: false,
       args: [
         '--no-sandbox',
-        // ❌ REMOVIDO: '--disable-setuid-sandbox' causa warning de seguridad
         '--disable-blink-features=AutomationControlled',
         '--disable-dev-shm-usage'
       ],
@@ -254,7 +255,7 @@ async function renewStarwinClearanceWithExtension(configStore) {
 
     configStore.update({
       starwin: {
-        ...starwin,  // ✅ Mantener todo lo que ya existe (incluyendo adminUser y adminPass)
+        ...starwin,
         cfClearance: cookieCaptured.cfClearance.value,
         cfClearanceDomain: cookieCaptured.cfClearance.domain,
         cfClearancePath: cookieCaptured.cfClearance.path,
@@ -272,7 +273,7 @@ async function renewStarwinClearanceWithExtension(configStore) {
       message: `🎉 ¡Listo! ${cookieCaptured.allCookies.length} cookies + User-Agent guardados`
     });
 
-    // ✅ NUEVO: Actualizar UserCreator con la página de Puppeteer
+    // ✅ Actualizar UserCreator con la página de Puppeteer
     if (userCreator && puppeteerPage) {
       userCreator.setPuppeteerPage(puppeteerPage);
       sendLog({
@@ -414,34 +415,153 @@ function findChromePath() {
   return null;
 }
 
+// ✅ MODIFICADO: Ahora ejecuta la renovación automáticamente en vez de pedir manual
 async function autoRenewCfIfNeeded(configStore) {
   if (!cfMaintainer) return { ok: false, error: "CF Maintainer no inicializado" };
   
+  // Evitar ejecuciones simultáneas
+  if (autoRenewInProgress) {
+    sendLog({
+      type: "CF_AUTO_RENEW_SKIP",
+      message: "⏳ Renovación ya en progreso, saltando..."
+    });
+    return { ok: false, reason: "ALREADY_IN_PROGRESS" };
+  }
+
   const check = cfMaintainer.checkAndRenewIfNeeded();
   
-  if (check.needsRenewal && check.priority === "HIGH") {
+  if (!check.needsRenewal) {
     sendLog({
-      type: "CF_AUTO_RENEW_NEEDED",
-      message: `⚠️ Renovación necesaria: ${check.reason}. Hacé clic en 'Renovar CF'`
+      type: "CF_AUTO_RENEW_CHECK",
+      message: `✅ CF válido (${check.hours}h). Próxima verificación en ~${check.nextCheck}h`
     });
-    return { ok: false, reason: "MANUAL_REQUIRED" };
+    return { ok: true, reason: "NOT_NEEDED" };
   }
-  
-  return { ok: true, reason: "NOT_NEEDED" };
+
+  // Si necesita renovación (cualquier prioridad), ejecutar automáticamente
+  sendLog({
+    type: "CF_AUTO_RENEW_STARTING",
+    message: `🔄 Renovación automática iniciada - Razón: ${check.reason} (${check.priority})`
+  });
+
+  autoRenewInProgress = true;
+
+  // Notificar al frontend que empezó la renovación
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("cf:auto-renew-status", { status: "renewing" });
+  }
+
+  try {
+    const result = await renewStarwinClearanceWithExtension(configStore);
+    
+    if (result.ok) {
+      cfMaintainer.resetAttempts();
+      sendLog({
+        type: "CF_AUTO_RENEW_SUCCESS",
+        message: `✅ Renovación automática exitosa - ${result.cookie?.totalCookies || 0} cookies capturadas`
+      });
+      
+      // Notificar al frontend para que actualice el indicador de estado CF
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("cf:auto-renewed", { ok: true });
+        mainWindow.webContents.send("cf:auto-renew-status", { status: "idle" });
+      }
+      
+      return { ok: true, reason: "RENEWED_AUTOMATICALLY" };
+    } else {
+      cfMaintainer.incrementAttempts();
+      sendLog({
+        type: "CF_AUTO_RENEW_FAILED",
+        message: `❌ Renovación automática falló: ${result.error || "unknown"}. Intento #${cfMaintainer.renewalAttempts}`
+      });
+
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("cf:auto-renew-status", { status: "idle" });
+      }
+
+      return { ok: false, reason: "RENEWAL_FAILED", error: result.error };
+    }
+  } catch (error) {
+    cfMaintainer.incrementAttempts();
+    sendLog({
+      type: "CF_AUTO_RENEW_ERROR",
+      message: `❌ Error en renovación automática: ${error.message}. Intento #${cfMaintainer.renewalAttempts}`
+    });
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("cf:auto-renew-status", { status: "idle" });
+    }
+
+    return { ok: false, reason: "RENEWAL_ERROR", error: error.message };
+  } finally {
+    autoRenewInProgress = false;
+  }
 }
 
+// ✅ NUEVO: Obtener el intervalo configurable (en minutos) desde config
+function getAutoRenewInterval(configStore) {
+  const cfg = configStore.get();
+  const minutes = cfg.autoRenewIntervalMinutes || 15; // Default 15 minutos
+  return Math.max(1, Math.min(120, minutes)); // Clamp entre 1 y 120 minutos
+}
+
+// ✅ MODIFICADO: Intervalo configurable + notifica al frontend el countdown
 function scheduleAutoRenewal(configStore) {
-  setInterval(() => {
+  const intervalMinutes = getAutoRenewInterval(configStore);
+  const intervalMs = intervalMinutes * 60 * 1000;
+  const INITIAL_DELAY = 15000; // 15 segundos después de iniciar la app
+
+  sendLog({
+    type: "CF_AUTO_RENEW_SCHEDULED",
+    message: `⏰ Renovación automática programada cada ${intervalMinutes} minutos`
+  });
+
+  // Limpiar intervalo anterior si existe
+  if (autoRenewIntervalRef) {
+    clearInterval(autoRenewIntervalRef);
+  }
+
+  // Notificar al frontend el intervalo configurado
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("cf:timer-config", { intervalMinutes });
+  }
+
+  // Ejecutar cada X minutos
+  autoRenewIntervalRef = setInterval(() => {
+    sendLog({
+      type: "CF_AUTO_RENEW_TICK",
+      message: "🔍 Verificación periódica de CF..."
+    });
+
+    // Notificar al frontend que se resetea el timer
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("cf:timer-reset", { intervalMinutes });
+    }
+
     autoRenewCfIfNeeded(configStore).catch(err => {
       console.error("Error en renovación automática:", err);
+      sendLog({
+        type: "CF_AUTO_RENEW_INTERVAL_ERROR",
+        message: `❌ Error en intervalo de renovación: ${err.message}`
+      });
     });
-  }, 30 * 60 * 1000);
-  
+  }, intervalMs);
+
+  // Primera verificación al iniciar
   setTimeout(() => {
+    sendLog({
+      type: "CF_AUTO_RENEW_INITIAL",
+      message: "🚀 Verificación inicial de CF al arrancar..."
+    });
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("cf:timer-reset", { intervalMinutes });
+    }
+
     autoRenewCfIfNeeded(configStore).catch(err => {
       console.error("Error en renovación inicial:", err);
     });
-  }, 10000);
+  }, INITIAL_DELAY);
 }
 
 app.whenReady().then(async () => {
@@ -450,7 +570,7 @@ app.whenReady().then(async () => {
 
   const configStore = new ConfigStore({ basePath: userDataPath });
   
-  // ✅ AGREGADO: Copiar credenciales de Google si no existen
+  // Copiar credenciales de Google si no existen
   const credentialsDir = path.join(userDataPath, 'credentials');
   const credentialsFile = path.join(credentialsDir, 'credenciales.json');
 
@@ -481,7 +601,7 @@ app.whenReady().then(async () => {
     }
   }
 
-  // ✅ AGREGADO: Crear SheetsLogger
+  // Crear SheetsLogger
   sheetsLogger = new SheetsLogger({
     credentialsPath: credentialsFile,
     configPath: sheetsConfigFile,
@@ -517,7 +637,7 @@ app.whenReady().then(async () => {
     sessionStore,
     userCreator,
     cfMaintainer,
-    sheetsLogger, // ✅ AGREGADO
+    sheetsLogger,
     onSendMessage: async ({ lineId, to, text }) => {
       if (lineManager) {
         return await lineManager.sendMessage(lineId, to, text);
@@ -622,7 +742,28 @@ app.whenReady().then(async () => {
     };
   });
 
-  // ✅ AGREGADO: Dashboard handlers
+  // ✅ NUEVO: Obtener intervalo de auto-renew
+  ipcMain.handle("cf:get-auto-renew-interval", async () => {
+    return getAutoRenewInterval(configStore);
+  });
+
+  // ✅ NUEVO: Cambiar intervalo de auto-renew
+  ipcMain.handle("cf:set-auto-renew-interval", async (_e, minutes) => {
+    const clamped = Math.max(1, Math.min(120, parseInt(minutes) || 15));
+    configStore.update({ autoRenewIntervalMinutes: clamped });
+    
+    sendLog({
+      type: "CF_INTERVAL_CHANGED",
+      message: `⏰ Intervalo de renovación cambiado a ${clamped} minutos`
+    });
+
+    // Reiniciar el scheduler con el nuevo intervalo
+    scheduleAutoRenewal(configStore);
+    
+    return { ok: true, interval: clamped };
+  });
+
+  // Dashboard handlers
   ipcMain.handle('dashboard:get-stats', async () => {
     try {
       if (!sheetsLogger) {
@@ -706,6 +847,9 @@ app.on("window-all-closed", () => {
 });
 
 app.on('will-quit', async () => {
+  if (autoRenewIntervalRef) {
+    clearInterval(autoRenewIntervalRef);
+  }
   if (userCreator) {
     userCreator.clearPuppeteerPage();
   }

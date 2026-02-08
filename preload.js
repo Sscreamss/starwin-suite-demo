@@ -23,7 +23,11 @@ contextBridge.exposeInMainWorld("api", {
   cfAutoRenew: () => ipcRenderer.invoke("cf:auto-renew"),
   cfStatus: () => ipcRenderer.invoke("cf:status"),
 
-  // ✅ AGREGADO: Dashboard / Google Sheets
+  // ✅ NUEVO: Auto-renew interval config
+  cfGetAutoRenewInterval: () => ipcRenderer.invoke("cf:get-auto-renew-interval"),
+  cfSetAutoRenewInterval: (minutes) => ipcRenderer.invoke("cf:set-auto-renew-interval", minutes),
+
+  // Dashboard / Google Sheets
   dashboardGetStats: () => ipcRenderer.invoke("dashboard:get-stats"),
   dashboardGetUsersByDay: (days) => ipcRenderer.invoke("dashboard:get-users-by-day", days),
   dashboardGetRecentUsers: (limit) => ipcRenderer.invoke("dashboard:get-recent-users", limit),
@@ -44,5 +48,22 @@ contextBridge.exposeInMainWorld("api", {
   onLogEvent: (callback) => {
     ipcRenderer.removeAllListeners("log:event");
     ipcRenderer.on("log:event", (_event, data) => callback(data));
+  },
+  // ✅ NUEVO: Eventos de auto-renew
+  onCfAutoRenewed: (callback) => {
+    ipcRenderer.removeAllListeners("cf:auto-renewed");
+    ipcRenderer.on("cf:auto-renewed", (_event, data) => callback(data));
+  },
+  onCfTimerReset: (callback) => {
+    ipcRenderer.removeAllListeners("cf:timer-reset");
+    ipcRenderer.on("cf:timer-reset", (_event, data) => callback(data));
+  },
+  onCfTimerConfig: (callback) => {
+    ipcRenderer.removeAllListeners("cf:timer-config");
+    ipcRenderer.on("cf:timer-config", (_event, data) => callback(data));
+  },
+  onCfAutoRenewStatus: (callback) => {
+    ipcRenderer.removeAllListeners("cf:auto-renew-status");
+    ipcRenderer.on("cf:auto-renew-status", (_event, data) => callback(data));
   }
 });
