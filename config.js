@@ -1,4 +1,4 @@
-// config.js - Configuración visual (v3 - etiqueta + dato separados)
+// config.js - Configuración visual (v3 - etiqueta + dato separados + imagen depósito)
 let currentConfig = null;
 
 const DEFAULTS = {
@@ -27,6 +27,7 @@ async function loadConfig() {
     currentConfig = await window.api.configGet();
     populateForm();
     initUI();
+    loadDepositImage(); // ✅ NUEVO: cargar preview de imagen
   } catch (error) {
     showAlert("Error cargando configuración: " + error.message, "error");
   }
@@ -193,6 +194,27 @@ function applySearchFilter(raw) {
   }
 }
 
+// ✅ NUEVO: Deposit Image handlers
+async function loadDepositImage() {
+  try {
+    const res = await window.api.configGetDepositImage();
+    const preview = $("depositImagePreview");
+    const removeBtn = $("btnRemoveDepositImage");
+    
+    if (!preview) return;
+
+    if (res?.ok && res.dataUrl) {
+      preview.innerHTML = '<img src="' + res.dataUrl + '" alt="Imagen de depósito">';
+      if (removeBtn) removeBtn.style.display = "inline-flex";
+    } else {
+      preview.innerHTML = '<div class="image-placeholder"><i class="fas fa-image"></i><span>Sin imagen configurada</span></div>';
+      if (removeBtn) removeBtn.style.display = "none";
+    }
+  } catch (err) {
+    console.error("Error cargando imagen:", err);
+  }
+}
+
 document.addEventListener("DOMContentLoaded", function() {
   loadConfig();
   document.querySelectorAll("textarea, input").forEach(function(input) {
@@ -207,4 +229,36 @@ document.addEventListener("DOMContentLoaded", function() {
   $("btnCancel").addEventListener("click", function() {
     if (confirm("¿Descartar cambios y volver al dashboard?")) { window.location.href = "index.html"; }
   });
+
+  // ✅ NUEVO: Botones de imagen de depósito
+  var btnSelect = $("btnSelectDepositImage");
+  if (btnSelect) {
+    btnSelect.addEventListener("click", async function() {
+      try {
+        var res = await window.api.configSelectDepositImage();
+        if (res?.ok) {
+          showAlert("📷 Imagen de depósito configurada: " + res.name, "success");
+          loadDepositImage();
+        }
+      } catch (err) {
+        showAlert("❌ Error seleccionando imagen: " + err.message, "error");
+      }
+    });
+  }
+
+  var btnRemove = $("btnRemoveDepositImage");
+  if (btnRemove) {
+    btnRemove.addEventListener("click", async function() {
+      if (!confirm("¿Quitar la imagen de depósito?")) return;
+      try {
+        var res = await window.api.configRemoveDepositImage();
+        if (res?.ok) {
+          showAlert("🗑️ Imagen de depósito eliminada", "success");
+          loadDepositImage();
+        }
+      } catch (err) {
+        showAlert("❌ Error eliminando imagen: " + err.message, "error");
+      }
+    });
+  }
 });

@@ -58,28 +58,30 @@
 
     .search { margin: 14px 0 10px; position: relative; }
     .search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--gray); font-size: 14px; pointer-events: none; }
-    .search input { width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: #fff; outline: none; font-size: 13px; }
+    .search input { width: 100%; padding: 10px 12px 10px 34px; border-radius: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: #fff; font-size: 13px; outline: none; }
+    .search input:focus { border-color: rgba(59,130,246,.6); }
 
-    .nav { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-    .nav button { border: 1px solid rgba(100,116,139,.25); background: rgba(15,23,42,.35); color: #e2e8f0; padding: 10px 12px; border-radius: 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: .15s ease; font-weight: 600; font-size: 13px; text-align: left; }
-    .nav button i { color: var(--primary); width: 18px; text-align: center; }
-    .nav button:hover { background: rgba(15,23,42,.55); border-color: rgba(100,116,139,.45); }
-    .nav button.active { background: rgba(59,130,246,.16); border-color: rgba(59,130,246,.40); }
+    .nav { display: flex; flex-direction: column; gap: 4px; margin-bottom: 14px; }
+    .nav button { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: transparent; border: 1px solid transparent; border-radius: 10px; color: #94a3b8; cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; transition: all .18s ease; }
+    .nav button:hover { background: rgba(59,130,246,.08); color: #e2e8f0; }
+    .nav button.active { background: rgba(59,130,246,.15); border-color: rgba(59,130,246,.35); color: #60a5fa; }
+    .nav button i { width: 20px; text-align: center; }
 
-    .sidebar .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
-    .btn-save { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; transition: .15s ease; }
-    .btn-save:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(16, 185, 129, 0.28); }
-    .btn-cancel { background: rgba(100, 116, 139, 0.25); color: #e2e8f0; padding: 10px 12px; border-radius: 10px; border: none; font-weight: 700; cursor: pointer; font-size: 13px; transition: .15s ease; }
-    .btn-cancel:hover { background: rgba(100, 116, 139, 0.45); }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .btn-save, .btn-cancel { padding: 10px; border-radius: 10px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all .18s ease; }
+    .btn-save { background: var(--primary); color: #fff; }
+    .btn-save:hover { background: #2563eb; transform: translateY(-1px); }
+    .btn-cancel { background: rgba(100,116,139,.15); color: #94a3b8; border: 1px solid rgba(100,116,139,.30); }
+    .btn-cancel:hover { background: rgba(100,116,139,.25); color: #e2e8f0; }
 
-    .main { background: transparent; display: flex; flex-direction: column; gap: 14px; }
-    #alertContainer { margin-bottom: 6px; }
-    .alert { padding: 14px 16px; border-radius: 10px; margin-bottom: 10px; display: none; align-items: center; gap: 10px; border: 1px solid transparent; background: rgba(15, 23, 42, 0.5); }
+    .main { min-width: 0; }
+
+    .alert { padding: 14px; border-radius: 10px; margin-bottom: 10px; display: none; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
     .alert.show { display: flex; }
-    .alert-success { border-color: #10b981; color: #10b981; background: rgba(16,185,129,.12); }
-    .alert-error { border-color: #ef4444; color: #ef4444; background: rgba(239,68,68,.12); }
+    .alert-success { background: rgba(16,185,129,.12); border: 1px solid rgba(16,185,129,.30); color: #34d399; }
+    .alert-error { background: rgba(239,68,68,.12); border: 1px solid rgba(239,68,68,.30); color: #f87171; }
 
-    .panel { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; }
+    .panel { background: var(--card); border: 1px solid var(--card-border); border-radius: 12px; padding: 18px; backdrop-filter: blur(8px); }
     .panel-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid rgba(100,116,139,.25); }
     .panel-header i { color: var(--primary); font-size: 18px; }
     .panel-header h2 { font-size: 16px; color: #fff; margin: 0; }
@@ -107,6 +109,82 @@
 
     .tag { display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; font-size: 12px; border: 1px solid rgba(100,116,139,.25); background: rgba(15,23,42,.35); color: #cbd5e1; }
     .tag i { color: var(--primary); }
+
+    /* ✅ NUEVO: Deposit Image Selector */
+    .deposit-image-selector {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .image-preview {
+      width: 160px;
+      height: 120px;
+      border-radius: 10px;
+      border: 2px dashed rgba(100, 116, 139, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: rgba(15, 23, 42, 0.5);
+      flex-shrink: 0;
+    }
+    .image-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    .image-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      color: rgba(100, 116, 139, 0.6);
+      font-size: 12px;
+    }
+    .image-placeholder i {
+      font-size: 28px;
+    }
+    .image-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .btn-image-select {
+      background: rgba(59, 130, 246, 0.2);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #60a5fa;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn-image-select:hover {
+      background: rgba(59, 130, 246, 0.35);
+      transform: translateY(-1px);
+    }
+    .btn-image-remove {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #f87171;
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+    .btn-image-remove:hover {
+      background: rgba(239, 68, 68, 0.3);
+    }
 
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
@@ -234,7 +312,8 @@
 
           <div class="info-box">
             <i class="fas fa-copy"></i>
-            Cada dato se envía en <strong>2 mensajes separados</strong>: primero la etiqueta (ej: "👤 Tu usuario es:") y después el dato solo (ej: "martin4479_starwin"). Así el usuario puede copiar el dato limpio.
+            Cada dato se envía en <strong>2 mensajes separados</strong>: primero la etiqueta (ej: "👤 Tu usuario es:") y después el dato solo (ej: "martin4479_starwin").
+            Así el usuario puede copiar el dato limpio.
           </div>
 
           <div class="grid-3">
@@ -310,6 +389,30 @@
               </label>
               <input id="cbuMessage" maxlength="60" data-search="cbu" />
               <div class="char-count" id="cbuCount">0 / 60</div>
+            </div>
+          </div>
+
+          <!-- ✅ NUEVO: Imagen de depósito -->
+          <div class="form-group">
+            <label>
+              Imagen de depósito
+              <span class="hint">Se envía después de los datos bancarios y CBU. Formatos: JPG, PNG, GIF, WebP</span>
+            </label>
+            <div class="deposit-image-selector">
+              <div id="depositImagePreview" class="image-preview">
+                <div class="image-placeholder">
+                  <i class="fas fa-image"></i>
+                  <span>Sin imagen configurada</span>
+                </div>
+              </div>
+              <div class="image-actions">
+                <button type="button" id="btnSelectDepositImage" class="btn-image-select">
+                  <i class="fas fa-upload"></i> Seleccionar imagen
+                </button>
+                <button type="button" id="btnRemoveDepositImage" class="btn-image-remove" style="display:none;">
+                  <i class="fas fa-trash"></i> Quitar imagen
+                </button>
+              </div>
             </div>
           </div>
 

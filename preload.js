@@ -23,9 +23,14 @@ contextBridge.exposeInMainWorld("api", {
   cfAutoRenew: () => ipcRenderer.invoke("cf:auto-renew"),
   cfStatus: () => ipcRenderer.invoke("cf:status"),
 
-  // ✅ NUEVO: Auto-renew interval config
+  // ✅ Auto-renew interval config
   cfGetAutoRenewInterval: () => ipcRenderer.invoke("cf:get-auto-renew-interval"),
   cfSetAutoRenewInterval: (minutes) => ipcRenderer.invoke("cf:set-auto-renew-interval", minutes),
+
+  // ✅ Deposit image config
+  configSelectDepositImage: () => ipcRenderer.invoke("config:select-deposit-image"),
+  configRemoveDepositImage: () => ipcRenderer.invoke("config:remove-deposit-image"),
+  configGetDepositImage: () => ipcRenderer.invoke("config:get-deposit-image"),
 
   // Dashboard / Google Sheets
   dashboardGetStats: () => ipcRenderer.invoke("dashboard:get-stats"),
@@ -49,7 +54,7 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.removeAllListeners("log:event");
     ipcRenderer.on("log:event", (_event, data) => callback(data));
   },
-  // ✅ NUEVO: Eventos de auto-renew
+  // ✅ Eventos de auto-renew
   onCfAutoRenewed: (callback) => {
     ipcRenderer.removeAllListeners("cf:auto-renewed");
     ipcRenderer.on("cf:auto-renewed", (_event, data) => callback(data));

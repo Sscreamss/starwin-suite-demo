@@ -1,24 +1,19 @@
 // whatsapp/lineManager.js
 const fs = require("fs");
 const path = require("path");
-const { Client, LocalAuth } = require("whatsapp-web.js");
+const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js"); // ✅ AGREGADO: MessageMedia
 const qrcode = require("qrcode-terminal");
 
 /**
  * Encuentra Chrome o Edge instalado en el sistema.
- * IMPORTANTE: whatsapp-web.js usa puppeteer internamente; si no le pasás executablePath,
- * intenta usar Chrome for Testing en caché (y ahí aparece el error "Could not find Chrome ver 143...").
  */
 function findChromePath() {
   const platform = process.platform;
 
   const candidatesByPlatform = {
     win32: [
-      // Chrome
       "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
       "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-
-      // Edge
       "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
       "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
     ],
@@ -38,7 +33,6 @@ function findChromePath() {
 
   const candidates = [...(candidatesByPlatform[platform] || [])];
 
-  // Windows: rutas por usuario (LOCALAPPDATA)
   if (platform === "win32" && process.env.LOCALAPPDATA) {
     candidates.push(
       path.join(process.env.LOCALAPPDATA, "Google", "Chrome", "Application", "chrome.exe"),
@@ -125,7 +119,6 @@ class LineManager {
         fs.mkdirSync(sessionDir, { recursive: true });
       }
 
-      // ✅ CLAVE: forzar Chrome/Edge del sistema para evitar el error de caché de puppeteer
       const chromePath = findChromePath();
       if (!chromePath) {
         const msg = "❌ No se encontró Chrome/Edge instalado (executablePath nulo)";
@@ -135,16 +128,14 @@ class LineManager {
         return { ok: false, error: msg };
       }
 
-      this._log("CHROME_PATH", `✅ Usando navegador: ${chromePath}`, lineId);
-
       const client = new Client({
         authStrategy: new LocalAuth({
           clientId: lineId,
-          dataPath: sessionDir,
+          dataPath: path.join(this.basePath, "sessions"),
         }),
         puppeteer: {
-          executablePath: chromePath, // ✅ FIX PRINCIPAL
           headless: true,
+          executablePath: chromePath,
           args: [
             "--no-sandbox",
             "--disable-setuid-sandbox",
@@ -153,38 +144,21 @@ class LineManager {
             "--no-first-run",
             "--no-zygote",
             "--disable-gpu",
-            "--log-level=3",
           ],
-        },
-        qrTimeout: 0,
-        takeoverOnConflict: false,
-        webVersionCache: {
-          type: "remote",
-          remotePath:
-            "https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html",
         },
       });
 
-      client.on("qr", (qr) => {
-        this._log("QR_RECEIVED", "Código QR recibido", lineId);
+      client.on("qr", async (qr) => {
+        this._log("QR", "Código QR generado", lineId);
 
-        // Generar QR en terminal
-        console.log(`\n=== QR CODE PARA ${lineId} ===`);
-        qrcode.generate(qr, { small: true });
-        console.log(`=== FIN QR CODE ===\n`);
+        const qrcode2 = require("qrcode-terminal");
+        qrcode2.generate(qr, { small: true });
 
-        // Convertir QR a URL base64 para la UI
-        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
-          qr
-        )}`;
+        // Generar QR como imagen base64
+        const QRCode = require("qrcode-terminal");
+        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qr)}&size=300x300`;
 
         this.statuses.set(lineId, {
-          state: "QR",
-          qr: qr,
-          qrImage: qrImageUrl,
-        });
-
-        this.onStatus?.(lineId, {
           state: "QR",
           qr: qrImageUrl,
         });
@@ -227,8 +201,7 @@ class LineManager {
           const body = msg.body || "";
           const timestamp = new Date().toISOString();
 
-          // ✅ NUEVO: metadata de media para que el engine decida en qué estado actuar (WAIT_PROOF)
-          const msgType = msg.type; // "chat", "image", "document", "video", etc.
+          const msgType = msg.type;
           const hasMedia = !!msg.hasMedia;
           const mimetype = msg?._data?.mimetype || null;
 
@@ -238,7 +211,6 @@ class LineManager {
             lineId
           );
 
-          // ✅ NUEVO: incluir mimetype en onMessage (por si tu UI lo quiere)
           this.onMessage?.(lineId, {
             from,
             body,
@@ -248,7 +220,6 @@ class LineManager {
             mimetype,
           });
 
-          // ✅ CLAVE: llamar al engine aunque body venga vacío si hay media
           if (this.engine && (body.trim() || hasMedia || msgType !== "chat")) {
             await this.engine.handleIncoming({
               lineId,
@@ -359,6 +330,39 @@ class LineManager {
       return { ok: true, used: to };
     } catch (error) {
       this._log("SEND_ERROR", `Error enviando mensaje: ${error.message}`, lineId);
+      return { ok: false, error: error.message };
+    }
+  }
+
+  // ✅ NUEVO: Enviar imagen por WhatsApp
+  async sendImage(lineId, to, imagePath, caption = "") {
+    try {
+      const client = this.clients.get(lineId);
+      if (!client) {
+        this._log("SEND_IMAGE_ERROR", `Línea ${lineId} no activa`, lineId);
+        return { ok: false, error: "Línea no activa" };
+      }
+
+      const status = this.statuses.get(lineId);
+      if (status?.state !== "READY") {
+        this._log("SEND_IMAGE_ERROR", `Cliente no está listo (estado: ${status?.state})`, lineId);
+        return { ok: false, error: "Cliente no listo" };
+      }
+
+      if (!fs.existsSync(imagePath)) {
+        this._log("SEND_IMAGE_ERROR", `Imagen no encontrada: ${imagePath}`, lineId);
+        return { ok: false, error: "Imagen no encontrada" };
+      }
+
+      this._log("SEND_IMAGE", `Enviando imagen a ${to}: ${path.basename(imagePath)}`, lineId);
+
+      const media = MessageMedia.fromFilePath(imagePath);
+      await client.sendMessage(to, media, { caption: caption || "" });
+
+      this._log("SEND_IMAGE_SUCCESS", `Imagen enviada a ${to}`, lineId);
+      return { ok: true, used: to };
+    } catch (error) {
+      this._log("SEND_IMAGE_ERROR", `Error enviando imagen: ${error.message}`, lineId);
       return { ok: false, error: error.message };
     }
   }

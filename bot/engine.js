@@ -1,12 +1,13 @@
 // bot/engine.js
 class BotEngine {
-  constructor({ configStore, sessionStore, userCreator, cfMaintainer, sheetsLogger, onSendMessage, onLog }) {
+  constructor({ configStore, sessionStore, userCreator, cfMaintainer, sheetsLogger, onSendMessage, onSendImage, onLog }) {
     this.configStore = configStore;
     this.sessionStore = sessionStore;
     this.userCreator = userCreator;
     this.cfMaintainer = cfMaintainer;
     this.sheetsLogger = sheetsLogger;
     this.onSendMessage = onSendMessage;
+    this.onSendImage = onSendImage; // ✅ NUEVO: handler para enviar imágenes
     this.onLog = onLog;
   }
 
@@ -55,7 +56,6 @@ class BotEngine {
         "👍 No hay problema. Puedes depositar cuando quieras desde tu cuenta.\n\n" +
         "¡Nos vemos en el juego!\n\n" +
         "Para mandar tu primera carga escribí: Deposito",
-      // ✅ Etiquetas de cuenta creada (el dato se manda aparte como mensaje separado)
       createdUserLabel: "👤 Tu usuario es:",
       createdPassLabel: "🔑 Tu contraseña es:",
       createdUrlLabel: "🌐 Ingresá acá:"
@@ -75,6 +75,9 @@ class BotEngine {
     const createdUserLabel = (cu.createdUserLabel || DEFAULTS.createdUserLabel).trim();
     const createdPassLabel = (cu.createdPassLabel || DEFAULTS.createdPassLabel).trim();
     const createdUrlLabel = (cu.createdUrlLabel || DEFAULTS.createdUrlLabel).trim();
+
+    // ✅ NUEVO: Ruta de imagen de depósito
+    const depositImagePath = cu.depositImagePath || "";
 
     const msg = (text || "").trim();
 
@@ -185,6 +188,11 @@ class BotEngine {
 
       await this._reply(lineId, from, bankMsg);
       await this._reply(lineId, from, cbuMsg);
+
+      // ✅ NUEVO: Enviar imagen de depósito si está configurada
+      if (depositImagePath) {
+        await this._sendImage(lineId, from, depositImagePath);
+      }
 
       this.sessionStore.upsert(lineId, from, (s) => {
         s.completed = false;
@@ -300,7 +308,6 @@ class BotEngine {
       }
 
       // ✅ CUENTA CREADA → Etiqueta + dato como mensajes SEPARADOS (6 mensajes)
-      // Así el usuario puede copiar el dato limpio sin emojis ni texto extra
       await this._reply(lineId, from, createdUserLabel);    // "👤 Tu usuario es:"
       await this._reply(lineId, from, res.username);         // "martin4479_starwin"
       await this._reply(lineId, from, createdPassLabel);     // "🔑 Tu contraseña es:"
@@ -365,6 +372,11 @@ class BotEngine {
         await this._reply(lineId, from, bankMsg);
         await this._reply(lineId, from, cbuMsg);
 
+        // ✅ NUEVO: Enviar imagen de depósito si está configurada
+        if (depositImagePath) {
+          await this._sendImage(lineId, from, depositImagePath);
+        }
+
         this.sessionStore.upsert(lineId, from, (s) => {
           s.completed = false;
           s.state = "WAIT_PROOF";
@@ -379,7 +391,7 @@ class BotEngine {
         await this._log("DEPOSIT_YES", {
           lineId,
           from,
-          message: "Usuario quiere depositar (envío datos + CBU, esperando comprobante)"
+          message: "Usuario quiere depositar (envío datos + CBU + imagen, esperando comprobante)"
         });
 
         if (this.sheetsLogger) {
@@ -503,6 +515,43 @@ class BotEngine {
         error: res?.error || "unknown",
         message: "Error enviando mensaje",
         timestamp: Date.now()
+      });
+    }
+  }
+
+  // ✅ NUEVO: Enviar imagen por WhatsApp
+  async _sendImage(lineId, to, imagePath, caption = "") {
+    if (!this.onSendImage) {
+      await this._log("SEND_IMAGE_NO_HANDLER", {
+        lineId,
+        to,
+        message: "No hay handler de imagen configurado"
+      });
+      return;
+    }
+
+    await this._log("SEND_IMAGE_ATTEMPT", {
+      lineId,
+      to,
+      imagePath,
+      caption: (caption || "").substring(0, 50),
+      message: "Enviando imagen de depósito"
+    });
+
+    const res = await this.onSendImage({ lineId, to, imagePath, caption });
+
+    if (res?.ok) {
+      await this._log("SEND_IMAGE_OK", {
+        lineId,
+        to,
+        message: "Imagen de depósito enviada exitosamente"
+      });
+    } else {
+      await this._log("SEND_IMAGE_FAIL", {
+        lineId,
+        to,
+        error: res?.error || "unknown",
+        message: "Error enviando imagen de depósito"
       });
     }
   }

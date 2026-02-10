@@ -183,11 +183,21 @@ function renderLines() {
         
         container.appendChild(row);
     }
+}
+
+// Event delegation separado (se bindea una sola vez en init)
+function setupLinesClickHandler() {
+    const container = $('#lines');
+    if (!container) return;
     
-    // Event delegation para botones
     container.addEventListener('click', async (e) => {
         const btn = e.target.closest('button');
-        if (!btn) return;
+        if (!btn) {
+            // Click en la línea completa → abrir consola
+            const row = e.target.closest('.line-row');
+            if (row) switchConsole(row.dataset.lineId);
+            return;
+        }
         
         const lineId = btn.dataset.line;
         if (!lineId) return;
@@ -409,6 +419,9 @@ function init() {
         $('.console-container').appendChild(consoleDiv);
     });
     
+    // ✅ Bindear event delegation para botones de líneas (una sola vez)
+    setupLinesClickHandler();
+    
     // Configurar botones de control
     $('#btnRefresh')?.addEventListener('click', () => {
         pushLog(null, '[UI] Refrescando líneas...', 'info');
@@ -557,13 +570,13 @@ function init() {
     
     // Configurar event listeners del backend
     window.api.onLineQr((lineId, qrCode) => {
-        state.statuses[lineId] = { ...state.statuses[lineId], qr: qrCode };
+        state.statuses[lineId] = { ...state.statuses[lineId], state: 'QR', qr: qrCode };
         pushLog(lineId, '[SYSTEM] Código QR generado', 'warning');
         renderLines();
     });
     
     window.api.onLineStatus((lineId, status) => {
-        state.statuses[lineId] = status;
+        state.statuses[lineId] = { ...state.statuses[lineId], ...status };
         pushLog(lineId, `[STATUS] ${status.state}`, 'info');
         renderLines();
         updateStats();

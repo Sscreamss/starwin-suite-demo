@@ -644,6 +644,13 @@ app.whenReady().then(async () => {
       }
       return { ok: false, error: "LineManager no inicializado" };
     },
+    // ✅ NUEVO: Handler para enviar imágenes
+    onSendImage: async ({ lineId, to, imagePath, caption }) => {
+      if (lineManager) {
+        return await lineManager.sendImage(lineId, to, imagePath, caption);
+      }
+      return { ok: false, error: "LineManager no inicializado" };
+    },
     onLog: sendLog
   });
 
@@ -832,6 +839,98 @@ app.whenReady().then(async () => {
       console.error('[MAIN] Error getting recent users:', error);
       return [];
     }
+  });
+
+  // ✅ NUEVO: Seleccionar imagen de depósito
+  ipcMain.handle("config:select-deposit-image", async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Seleccionar imagen de depósito",
+      filters: [
+        { name: "Imágenes", extensions: ["jpg", "jpeg", "png", "gif", "webp"] }
+      ],
+      properties: ["openFile"]
+    });
+
+    if (result.canceled || !result.filePaths[0]) {
+      return { ok: false, reason: "CANCELLED" };
+    }
+
+    const sourcePath = result.filePaths[0];
+    const ext = path.extname(sourcePath);
+    const destDir = path.join(userDataPath, "config", "images");
+    
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    const destPath = path.join(destDir, `deposit-image${ext}`);
+
+    // Copiar imagen a la carpeta de config
+    fs.copyFileSync(sourcePath, destPath);
+
+    // Guardar ruta en config
+    const currentCfg = configStore.get();
+    configStore.update({
+      createUser: {
+        ...currentCfg.createUser,
+        depositImagePath: destPath
+      }
+    });
+
+    sendLog({
+      type: "CONFIG_DEPOSIT_IMAGE",
+      message: `📷 Imagen de depósito configurada: ${path.basename(destPath)}`
+    });
+
+    return { ok: true, path: destPath, name: path.basename(sourcePath) };
+  });
+
+  // ✅ NUEVO: Borrar imagen de depósito
+  ipcMain.handle("config:remove-deposit-image", async () => {
+    const cfg = configStore.get();
+    const imagePath = cfg.createUser?.depositImagePath;
+
+    if (imagePath && fs.existsSync(imagePath)) {
+      try {
+        fs.unlinkSync(imagePath);
+      } catch {}
+    }
+
+    configStore.update({
+      createUser: {
+        ...cfg.createUser,
+        depositImagePath: ""
+      }
+    });
+
+    sendLog({
+      type: "CONFIG_DEPOSIT_IMAGE_REMOVED",
+      message: "🗑️ Imagen de depósito eliminada"
+    });
+
+    return { ok: true };
+  });
+
+  // ✅ NUEVO: Obtener info de la imagen de depósito
+  ipcMain.handle("config:get-deposit-image", async () => {
+    const cfg = configStore.get();
+    const imagePath = cfg.createUser?.depositImagePath;
+
+    if (imagePath && fs.existsSync(imagePath)) {
+      const base64 = fs.readFileSync(imagePath).toString("base64");
+      const ext = path.extname(imagePath).replace(".", "").toLowerCase();
+      const mimeMap = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
+      const mime = mimeMap[ext] || "image/jpeg";
+      
+      return {
+        ok: true,
+        path: imagePath,
+        name: path.basename(imagePath),
+        dataUrl: `data:${mime};base64,${base64}`
+      };
+    }
+
+    return { ok: false, reason: "NO_IMAGE" };
   });
 
   createMainWindow();
