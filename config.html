@@ -186,6 +186,11 @@
       background: rgba(239, 68, 68, 0.3);
     }
 
+    /* Inline number input */
+    .inline-number { display: flex; align-items: center; gap: 10px; }
+    .inline-number input[type="number"] { width: 80px; text-align: center; }
+    .inline-number span { color: var(--gray); font-size: 12px; }
+
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .sidebar { position: relative; top: 0; }
@@ -265,13 +270,24 @@
             <div class="char-count" id="invalidNameCount">0 / 500</div>
           </div>
 
-          <div class="form-group">
-            <label>
-              Mensaje "creando usuario..."
-              <span class="hint">Se envía mientras se crea la cuenta</span>
-            </label>
-            <input id="creatingMessage" maxlength="200" data-search="creando espera usuario" />
-            <div class="char-count" id="creatingCount">0 / 200</div>
+          <div class="grid-2">
+            <div class="form-group">
+              <label>
+                Mensaje "creando usuario..."
+                <span class="hint">Se envía mientras se crea la cuenta</span>
+              </label>
+              <input id="creatingMessage" maxlength="200" data-search="creando espera usuario" />
+              <div class="char-count" id="creatingCount">0 / 200</div>
+            </div>
+
+            <div class="form-group">
+              <label>
+                Mensaje "esperá un momento"
+                <span class="hint">Si el usuario manda algo mientras se crea la cuenta</span>
+              </label>
+              <input id="creatingUserWaitMessage" maxlength="300" data-search="espera momento creando usuario wait" />
+              <div class="char-count" id="creatingUserWaitCount">0 / 300</div>
+            </div>
           </div>
 
           <div class="grid-2">
@@ -360,6 +376,22 @@
             <textarea id="askDepositMessage" maxlength="500" data-search="deposito preguntar si no"></textarea>
             <div class="char-count" id="askDepositCount">0 / 500</div>
           </div>
+
+          <!-- ✅ NUEVO: Mensaje bienvenida de vuelta -->
+          <div class="panel-header" style="margin-top: 10px;">
+            <i class="fas fa-hand-peace"></i>
+            <h2>Mensaje de bienvenida (usuarios con cuenta)</h2>
+            <p>Cuando ya completó el flujo</p>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje de bienvenida de vuelta
+              <span class="hint">Se envía cuando un usuario que ya tiene cuenta escribe un mensaje no reconocido. Tip: incluir los comandos disponibles (DEPOSITO, SOPORTE, INFO).</span>
+            </label>
+            <textarea id="welcomeBackMessage" maxlength="800" data-search="bienvenida vuelta completado welcome back"></textarea>
+            <div class="char-count" id="welcomeBackCount">0 / 800</div>
+          </div>
         </div>
       </section>
 
@@ -444,6 +476,38 @@
             <textarea id="proofRedirectMessage" maxlength="2000" data-search="derivo caja linea principal whatsapp comprobante"></textarea>
             <div class="char-count" id="proofRedirectCount">0 / 2000</div>
           </div>
+
+          <!-- ✅ NUEVO: Recordatorio de comprobante -->
+          <div class="panel-header" style="margin-top: 10px;">
+            <i class="fas fa-bell"></i>
+            <h2>Recordatorio de comprobante</h2>
+            <p>Se envía si no mandan la foto a tiempo</p>
+          </div>
+
+          <div class="info-box">
+            <i class="fas fa-clock"></i>
+            Si el usuario dice que va a depositar pero no envía el comprobante, el bot le manda un recordatorio automático. Poner 0 para desactivar.
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje de recordatorio
+              <span class="hint">Se envía tras X minutos sin recibir el comprobante</span>
+            </label>
+            <textarea id="proofReminderMessage" maxlength="800" data-search="recordatorio reminder comprobante timeout"></textarea>
+            <div class="char-count" id="proofReminderCount">0 / 800</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Tiempo de espera (minutos)
+              <span class="hint">Minutos antes de enviar el recordatorio. 0 = desactivado.</span>
+            </label>
+            <div class="inline-number">
+              <input type="number" id="proofReminderMinutes" min="0" max="120" value="15" data-search="recordatorio minutos tiempo espera" />
+              <span>minutos</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -482,7 +546,10 @@
             <div class="preview">
               ✔ Flujo: mensaje → pedir nombre → crear usuario → etiqueta + dato (×3) → preguntar depósito.<br/>
               ✔ Cada dato (usuario, contraseña, link) se envía como mensaje separado para copiar/pegar.<br/>
-              ✔ Los comandos/intents siguen en el engine.
+              ✔ Los comandos/intents siguen en el engine.<br/>
+              ✔ Recordatorio de comprobante configurable (minutos).<br/>
+              ✔ Mensaje de bienvenida para usuarios que ya completaron el flujo.<br/>
+              ✔ Guard de CREATING_USER: no procesa mensajes mientras se crea la cuenta.
             </div>
           </div>
         </div>

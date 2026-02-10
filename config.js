@@ -1,4 +1,4 @@
-// config.js - Configuración visual (v3 - etiqueta + dato separados + imagen depósito)
+// config.js - Configuración visual (v4 - etiqueta + dato separados + imagen depósito + mensajes mejorados)
 let currentConfig = null;
 
 const DEFAULTS = {
@@ -13,7 +13,12 @@ const DEFAULTS = {
   askDeposit: "¿Deseas realizar un depósito ahora? Responde SI o NO",
   createdUserLabel: "👤 Tu usuario es:",
   createdPassLabel: "🔑 Tu contraseña es:",
-  createdUrlLabel: "🌐 Ingresá acá:"
+  createdUrlLabel: "🌐 Ingresá acá:",
+  // ✅ NUEVOS
+  welcomeBackMessage: "¡Hola de nuevo! 👋 Ya tenés tu cuenta creada.\n\nSi querés hacer un depósito escribí *DEPOSITO*\nSi necesitás ayuda escribí *SOPORTE*\nSi necesitás info escribí *INFO*",
+  creatingUserWaitMessage: "⏳ Estamos creando tu cuenta, esperá un momento por favor...",
+  proofReminderMessage: "⏰ ¡Recordatorio! ¿Ya pudiste hacer la transferencia?\n\nAcordate de mandar la *foto del comprobante* por acá.\nSi necesitás los datos de nuevo escribí *DEPOSITO*",
+  proofReminderMinutes: 15
 };
 
 function $(id) { return document.getElementById(id); }
@@ -27,7 +32,7 @@ async function loadConfig() {
     currentConfig = await window.api.configGet();
     populateForm();
     initUI();
-    loadDepositImage(); // ✅ NUEVO: cargar preview de imagen
+    loadDepositImage();
   } catch (error) {
     showAlert("Error cargando configuración: " + error.message, "error");
   }
@@ -55,6 +60,12 @@ function populateForm() {
   $("proofRedirectMessage").value = cu.proofRedirectMessage || DEFAULTS.proofRedirectMessage;
   $("depositNoMessage").value = cu.depositNoMessage || cu.depositNo || DEFAULTS.depositNoMessage;
 
+  // ✅ NUEVOS campos
+  $("welcomeBackMessage").value = cu.welcomeBackMessage || DEFAULTS.welcomeBackMessage;
+  $("creatingUserWaitMessage").value = cu.creatingUserWaitMessage || DEFAULTS.creatingUserWaitMessage;
+  $("proofReminderMessage").value = cu.proofReminderMessage || DEFAULTS.proofReminderMessage;
+  $("proofReminderMinutes").value = cu.proofReminderMinutes ?? DEFAULTS.proofReminderMinutes;
+
   updateCharCounts();
   updatePreview();
 }
@@ -77,7 +88,11 @@ function updateCharCounts() {
     { id: "cbuMessage", countId: "cbuCount", max: 60 },
     { id: "askProofMessage", countId: "askProofCount", max: 800 },
     { id: "depositNoMessage", countId: "depositNoCount", max: 800 },
-    { id: "proofRedirectMessage", countId: "proofRedirectCount", max: 2000 }
+    { id: "proofRedirectMessage", countId: "proofRedirectCount", max: 2000 },
+    // ✅ NUEVOS
+    { id: "welcomeBackMessage", countId: "welcomeBackCount", max: 800 },
+    { id: "creatingUserWaitMessage", countId: "creatingUserWaitCount", max: 300 },
+    { id: "proofReminderMessage", countId: "proofReminderCount", max: 800 }
   ];
   fields.forEach(function(field) {
     var input = $(field.id);
@@ -132,7 +147,12 @@ async function saveConfig() {
         askProofMessage: $("askProofMessage").value.trim(),
         proofRedirectMessage: $("proofRedirectMessage").value.trim(),
         depositNoMessage: $("depositNoMessage").value.trim(),
-        depositNo: $("depositNoMessage").value.trim()
+        depositNo: $("depositNoMessage").value.trim(),
+        // ✅ NUEVOS
+        welcomeBackMessage: $("welcomeBackMessage").value.trim(),
+        creatingUserWaitMessage: $("creatingUserWaitMessage").value.trim(),
+        proofReminderMessage: $("proofReminderMessage").value.trim(),
+        proofReminderMinutes: parseInt($("proofReminderMinutes").value) || 15
       }
     };
     await window.api.configSet(updates);
@@ -194,24 +214,22 @@ function applySearchFilter(raw) {
   }
 }
 
-// ✅ NUEVO: Deposit Image handlers
+// ✅ Imagen de depósito
 async function loadDepositImage() {
   try {
-    const res = await window.api.configGetDepositImage();
-    const preview = $("depositImagePreview");
-    const removeBtn = $("btnRemoveDepositImage");
-    
-    if (!preview) return;
+    var result = await window.api.configGetDepositImage();
+    var preview = $("depositImagePreview");
+    var btnRemove = $("btnRemoveDepositImage");
 
-    if (res?.ok && res.dataUrl) {
-      preview.innerHTML = '<img src="' + res.dataUrl + '" alt="Imagen de depósito">';
-      if (removeBtn) removeBtn.style.display = "inline-flex";
+    if (result && result.ok && result.dataUrl) {
+      preview.innerHTML = '<img src="' + result.dataUrl + '" alt="Imagen depósito" />';
+      if (btnRemove) btnRemove.style.display = "";
     } else {
       preview.innerHTML = '<div class="image-placeholder"><i class="fas fa-image"></i><span>Sin imagen configurada</span></div>';
-      if (removeBtn) removeBtn.style.display = "none";
+      if (btnRemove) btnRemove.style.display = "none";
     }
-  } catch (err) {
-    console.error("Error cargando imagen:", err);
+  } catch (error) {
+    console.error("Error cargando imagen de depósito:", error);
   }
 }
 
@@ -230,34 +248,32 @@ document.addEventListener("DOMContentLoaded", function() {
     if (confirm("¿Descartar cambios y volver al dashboard?")) { window.location.href = "index.html"; }
   });
 
-  // ✅ NUEVO: Botones de imagen de depósito
+  // ✅ Imagen de depósito
   var btnSelect = $("btnSelectDepositImage");
+  var btnRemove = $("btnRemoveDepositImage");
+
   if (btnSelect) {
     btnSelect.addEventListener("click", async function() {
       try {
-        var res = await window.api.configSelectDepositImage();
-        if (res?.ok) {
-          showAlert("📷 Imagen de depósito configurada: " + res.name, "success");
+        var result = await window.api.configSelectDepositImage();
+        if (result && result.ok) {
           loadDepositImage();
+          showAlert("✅ Imagen configurada: " + result.name, "success");
         }
-      } catch (err) {
-        showAlert("❌ Error seleccionando imagen: " + err.message, "error");
+      } catch (error) {
+        showAlert("❌ Error seleccionando imagen: " + error.message, "error");
       }
     });
   }
 
-  var btnRemove = $("btnRemoveDepositImage");
   if (btnRemove) {
     btnRemove.addEventListener("click", async function() {
-      if (!confirm("¿Quitar la imagen de depósito?")) return;
       try {
-        var res = await window.api.configRemoveDepositImage();
-        if (res?.ok) {
-          showAlert("🗑️ Imagen de depósito eliminada", "success");
-          loadDepositImage();
-        }
-      } catch (err) {
-        showAlert("❌ Error eliminando imagen: " + err.message, "error");
+        await window.api.configRemoveDepositImage();
+        loadDepositImage();
+        showAlert("✅ Imagen eliminada", "success");
+      } catch (error) {
+        showAlert("❌ Error eliminando imagen: " + error.message, "error");
       }
     });
   }

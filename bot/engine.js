@@ -7,8 +7,11 @@ class BotEngine {
     this.cfMaintainer = cfMaintainer;
     this.sheetsLogger = sheetsLogger;
     this.onSendMessage = onSendMessage;
-    this.onSendImage = onSendImage; // ✅ NUEVO: handler para enviar imágenes
+    this.onSendImage = onSendImage;
     this.onLog = onLog;
+
+    // ✅ NUEVO: Map de timers de recordatorio de comprobante
+    this._proofReminders = new Map();
   }
 
   // ✅ Recibe metadata del mensaje (type/hasMedia/mimetype) para manejar WAIT_PROOF con fotos
@@ -58,7 +61,19 @@ class BotEngine {
         "Para mandar tu primera carga escribí: Deposito",
       createdUserLabel: "👤 Tu usuario es:",
       createdPassLabel: "🔑 Tu contraseña es:",
-      createdUrlLabel: "🌐 Ingresá acá:"
+      createdUrlLabel: "🌐 Ingresá acá:",
+      // ✅ NUEVOS DEFAULTS
+      welcomeBackMessage:
+        "¡Hola de nuevo! 👋 Ya tenés tu cuenta creada.\n\n" +
+        "Si querés hacer un depósito escribí *DEPOSITO*\n" +
+        "Si necesitás ayuda escribí *SOPORTE*\n" +
+        "Si necesitás info escribí *INFO*",
+      creatingUserWaitMessage: "⏳ Estamos creando tu cuenta, esperá un momento por favor...",
+      proofReminderMessage:
+        "⏰ ¡Recordatorio! ¿Ya pudiste hacer la transferencia?\n\n" +
+        "Acordate de mandar la *foto del comprobante* por acá.\n" +
+        "Si necesitás los datos de nuevo escribí *DEPOSITO*",
+      proofReminderMinutes: 15
     };
 
     // ✅ Textos editables desde config
@@ -71,12 +86,18 @@ class BotEngine {
       cu.depositNo ||
       DEFAULTS.depositNoMessage
     ).trim();
-    // ✅ Etiquetas de cuenta creada
+    // Etiquetas de cuenta creada
     const createdUserLabel = (cu.createdUserLabel || DEFAULTS.createdUserLabel).trim();
     const createdPassLabel = (cu.createdPassLabel || DEFAULTS.createdPassLabel).trim();
     const createdUrlLabel = (cu.createdUrlLabel || DEFAULTS.createdUrlLabel).trim();
 
-    // ✅ NUEVO: Ruta de imagen de depósito
+    // ✅ NUEVOS textos configurables
+    const welcomeBackMsg = (cu.welcomeBackMessage || DEFAULTS.welcomeBackMessage).trim();
+    const creatingUserWaitMsg = (cu.creatingUserWaitMessage || DEFAULTS.creatingUserWaitMessage).trim();
+    const proofReminderMsg = (cu.proofReminderMessage || DEFAULTS.proofReminderMessage).trim();
+    const proofReminderMinutes = cu.proofReminderMinutes ?? DEFAULTS.proofReminderMinutes;
+
+    // Ruta de imagen de depósito
     const depositImagePath = cu.depositImagePath || "";
 
     const msg = (text || "").trim();
@@ -91,7 +112,24 @@ class BotEngine {
     this.sessionStore.resetIfInactive(lineId, from, 2);
     const sessionAfterCheck = this.sessionStore.get(lineId, from);
 
+    // ═══════════════════════════════════════
+    // ✅ GUARD: Estado CREATING_USER
+    // Si se está creando la cuenta, no procesar nada más
+    // ═══════════════════════════════════════
+    if (sessionAfterCheck.state === "CREATING_USER") {
+      await this._reply(lineId, from, creatingUserWaitMsg);
+      await this._log("CREATING_USER_WAIT", {
+        lineId,
+        from,
+        text: msg.substring(0, 50),
+        message: "Usuario mandó mensaje mientras se crea la cuenta"
+      });
+      return;
+    }
+
+    // ═══════════════════════════════════════
     // ✅ Estado WAIT_PROOF: esperar comprobante (foto)
+    // ═══════════════════════════════════════
     if (sessionAfterCheck.state === "WAIT_PROOF") {
       // Evitar rate limit en este estado (es input esperado)
       this.sessionStore.upsert(lineId, from, (s) => {
@@ -100,6 +138,9 @@ class BotEngine {
       });
 
       if (isImage) {
+        // ✅ Cancelar timer de recordatorio
+        this._cancelProofReminder(lineId, from);
+
         await this._reply(lineId, from, proofRedirectMsg);
 
         await this._log("PROOF_IMAGE_RECEIVED", {
@@ -111,10 +152,10 @@ class BotEngine {
           message: "Comprobante recibido (imagen). Derivación enviada."
         });
 
-        // Cerrar flujo
+        // Cerrar flujo — estado COMPLETED, no manda nada más
         this.sessionStore.upsert(lineId, from, (s) => {
           s.completed = true;
-          s.state = "MENU";
+          s.state = "COMPLETED";
           s.data = s.data || {};
           s.data.proofReceived = true;
           s.data.completedAt = Date.now();
@@ -171,9 +212,19 @@ class BotEngine {
       if (delta < cfg.safety.rateLimitSeconds * 1000) return;
     }
 
+    // ═══════════════════════════════════════
+    // COMANDOS GLOBALES (funcionan desde cualquier estado)
+    // ═══════════════════════════════════════
+
     // ✅ MENU / REINICIAR / CANCELAR → reiniciar flujo de creación
     if (isIntent(normalized, "MENU") || isIntent(normalized, "REINICIAR") || isIntent(normalized, "CANCELAR")) {
+      this._cancelProofReminder(lineId, from);
       await this._setState(lineId, from, "WAIT_NAME");
+      // Reset completed flag para permitir nuevo flujo
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.completed = false;
+        return s;
+      });
       await this._reply(lineId, from, cfg.createUser.askName);
       await this._log("CMD_RESTART", { lineId, from, text: normalized });
       return;
@@ -189,7 +240,7 @@ class BotEngine {
       await this._reply(lineId, from, bankMsg);
       await this._reply(lineId, from, cbuMsg);
 
-      // ✅ NUEVO: Enviar imagen de depósito si está configurada
+      // Enviar imagen de depósito si está configurada
       if (depositImagePath) {
         await this._sendImage(lineId, from, depositImagePath);
       }
@@ -204,6 +255,9 @@ class BotEngine {
       });
 
       await this._reply(lineId, from, askProofMsg);
+
+      // ✅ Iniciar timer de recordatorio
+      this._scheduleProofReminder(lineId, from, proofReminderMsg, proofReminderMinutes);
 
       await this._log("DEPOSIT_COMMAND", {
         lineId,
@@ -223,12 +277,33 @@ class BotEngine {
       return;
     }
 
-    // ✅ WAIT_NAME
+    // ═══════════════════════════════════════
+    // ✅ WAIT_NAME: pedir nombre
+    // ═══════════════════════════════════════
     if (sessionAfterCheck.state === "WAIT_NAME") {
       this.sessionStore.upsert(lineId, from, (s) => {
         s.meta.lastActionAt = 0;
         return s;
       });
+
+      // ✅ FIX: Verificar si es un comando ANTES de tratar como nombre
+      if (isIntent(normalized, "INFO")) {
+        await this._reply(lineId, from, cfg.info.text);
+        await this._reply(lineId, from, cfg.createUser.askName);
+        await this._log("WAIT_NAME_CMD_INFO", { lineId, from });
+        return;
+      }
+      if (isIntent(normalized, "SOPORTE")) {
+        await this._reply(lineId, from, cfg.support.text);
+        await this._reply(lineId, from, cfg.createUser.askName);
+        await this._log("WAIT_NAME_CMD_SOPORTE", { lineId, from });
+        return;
+      }
+      if (isIntent(normalized, "CREAR_USUARIO")) {
+        await this._reply(lineId, from, cfg.createUser.askName);
+        await this._log("WAIT_NAME_CMD_CREAR", { lineId, from });
+        return;
+      }
 
       if (!isValidName(msg)) {
         await this._bumpAttempts(lineId, from);
@@ -359,7 +434,9 @@ class BotEngine {
       return;
     }
 
-    // ✅ WAIT_DEPOSIT
+    // ═══════════════════════════════════════
+    // ✅ WAIT_DEPOSIT: responder SI / NO
+    // ═══════════════════════════════════════
     if (sessionAfterCheck.state === "WAIT_DEPOSIT") {
       this.sessionStore.upsert(lineId, from, (s) => {
         s.meta.lastActionAt = 0;
@@ -372,7 +449,7 @@ class BotEngine {
         await this._reply(lineId, from, bankMsg);
         await this._reply(lineId, from, cbuMsg);
 
-        // ✅ NUEVO: Enviar imagen de depósito si está configurada
+        // Enviar imagen de depósito si está configurada
         if (depositImagePath) {
           await this._sendImage(lineId, from, depositImagePath);
         }
@@ -387,6 +464,9 @@ class BotEngine {
         });
 
         await this._reply(lineId, from, askProofMsg);
+
+        // ✅ Iniciar timer de recordatorio
+        this._scheduleProofReminder(lineId, from, proofReminderMsg, proofReminderMinutes);
 
         await this._log("DEPOSIT_YES", {
           lineId,
@@ -424,7 +504,7 @@ class BotEngine {
 
         this.sessionStore.upsert(lineId, from, (s) => {
           s.completed = true;
-          s.state = "MENU";
+          s.state = "COMPLETED";
           s.data = s.data || {};
           s.data.depositResponse = "NO";
           s.data.completedAt = Date.now();
@@ -439,33 +519,62 @@ class BotEngine {
       return;
     }
 
+    // ═══════════════════════════════════════
+    // COMANDOS DESDE ESTADO LIBRE (no están en un flujo activo)
+    // ═══════════════════════════════════════
+
     // ✅ INFO → responder info y arrancar creación
     if (isIntent(normalized, "INFO")) {
       await this._reply(lineId, from, cfg.info.text);
-      await this._setState(lineId, from, "WAIT_NAME");
-      await this._reply(lineId, from, cfg.createUser.askName);
-      await this._log("FLOW_INFO", { lineId, from, message: "Info enviada, iniciando creación" });
+      // Solo arrancar creación si no tiene cuenta aún
+      if (!sessionAfterCheck.completed) {
+        await this._setState(lineId, from, "WAIT_NAME");
+        await this._reply(lineId, from, cfg.createUser.askName);
+      }
+      await this._log("FLOW_INFO", { lineId, from });
       return;
     }
 
     // ✅ SOPORTE → responder soporte y arrancar creación
     if (isIntent(normalized, "SOPORTE")) {
       await this._reply(lineId, from, cfg.support.text);
-      await this._setState(lineId, from, "WAIT_NAME");
-      await this._reply(lineId, from, cfg.createUser.askName);
-      await this._log("FLOW_SUPPORT", { lineId, from, message: "Soporte enviado, iniciando creación" });
+      if (!sessionAfterCheck.completed) {
+        await this._setState(lineId, from, "WAIT_NAME");
+        await this._reply(lineId, from, cfg.createUser.askName);
+      }
+      await this._log("FLOW_SUPPORT", { lineId, from });
       return;
     }
 
     // ✅ CREAR USUARIO
     if (isIntent(normalized, "CREAR_USUARIO")) {
       await this._setState(lineId, from, "WAIT_NAME");
+      this.sessionStore.upsert(lineId, from, (s) => {
+        s.completed = false;
+        return s;
+      });
       await this._reply(lineId, from, cfg.createUser.askName);
-      await this._log("FLOW_CREATE_START", { lineId, from, message: "Iniciando creación de usuario" });
+      await this._log("FLOW_CREATE_START", { lineId, from });
       return;
     }
 
-    // ✅ Cualquier mensaje no reconocido → iniciar flujo de creación automáticamente
+    // ═══════════════════════════════════════
+    // ✅ CATCH-ALL: mensajes no reconocidos
+    // ═══════════════════════════════════════
+
+    // Si la sesión ya completó el flujo → mensaje de bienvenida de vuelta
+    if (sessionAfterCheck.completed || sessionAfterCheck.state === "COMPLETED") {
+      await this._reply(lineId, from, welcomeBackMsg);
+      await this._log("WELCOME_BACK", {
+        lineId,
+        from,
+        text: msg.substring(0, 50),
+        message: "Sesión completada, enviando mensaje de bienvenida"
+      });
+      return;
+    }
+
+    // Si no completó → iniciar flujo de creación automáticamente
     await this._setState(lineId, from, "WAIT_NAME");
     await this._reply(lineId, from, cfg.createUser.askName);
     await this._log("AUTO_CREATE_START", {
@@ -476,7 +585,66 @@ class BotEngine {
     });
   }
 
-  // ✅ _sendMenu simplificado (ya no hay menú, siempre pide nombre)
+  // ═══════════════════════════════════════
+  // ✅ NUEVO: Timer de recordatorio de comprobante
+  // ═══════════════════════════════════════
+  _scheduleProofReminder(lineId, from, reminderMsg, minutes) {
+    if (!minutes || minutes <= 0) return;
+
+    const key = `${lineId}::${from}`;
+
+    // Cancelar timer anterior si existe
+    this._cancelProofReminder(lineId, from);
+
+    const timeoutMs = minutes * 60 * 1000;
+
+    const timer = setTimeout(async () => {
+      try {
+        // Verificar que sigue en WAIT_PROOF antes de mandar
+        const session = this.sessionStore.get(lineId, from);
+        if (session?.state === "WAIT_PROOF") {
+          await this._reply(lineId, from, reminderMsg);
+          await this._log("PROOF_REMINDER_SENT", {
+            lineId,
+            from,
+            minutes,
+            message: `Recordatorio de comprobante enviado (${minutes} min)`
+          });
+        }
+      } catch (error) {
+        this._log("PROOF_REMINDER_ERROR", {
+          lineId,
+          from,
+          error: error.message
+        });
+      } finally {
+        this._proofReminders.delete(key);
+      }
+    }, timeoutMs);
+
+    this._proofReminders.set(key, timer);
+
+    this._log("PROOF_REMINDER_SCHEDULED", {
+      lineId,
+      from,
+      minutes,
+      message: `Recordatorio programado en ${minutes} minutos`
+    });
+  }
+
+  _cancelProofReminder(lineId, from) {
+    const key = `${lineId}::${from}`;
+    const existing = this._proofReminders.get(key);
+    if (existing) {
+      clearTimeout(existing);
+      this._proofReminders.delete(key);
+    }
+  }
+
+  // ═══════════════════════════════════════
+  // Métodos existentes
+  // ═══════════════════════════════════════
+
   async _sendMenu(lineId, to, cfg, force = false) {
     await this._setState(lineId, to, "WAIT_NAME");
     await this._reply(lineId, to, cfg.createUser.askName);
@@ -519,7 +687,6 @@ class BotEngine {
     }
   }
 
-  // ✅ NUEVO: Enviar imagen por WhatsApp
   async _sendImage(lineId, to, imagePath, caption = "") {
     if (!this.onSendImage) {
       await this._log("SEND_IMAGE_NO_HANDLER", {
@@ -709,7 +876,7 @@ function template(str, vars) {
 function isValidName(name) {
   if (!name) return false;
   if (name.length < 2 || name.length > 50) return false;
-  return /^[A-Za-zÀÁÉÍÓÚÜÑàáéíóúüñ\s]+$/.test(name);
+  return /^[A-Za-zÀÁÉÍÓÚÜÑàáéíóúüñ\s'-]+$/.test(name);
 }
 
 module.exports = { BotEngine };

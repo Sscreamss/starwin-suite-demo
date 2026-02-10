@@ -25,7 +25,7 @@ const DEFAULT_CONFIG = {
     askName: "Buenas, me dirías tu nombre por favor?",
     invalidName: "❌ Nombre inválido. Debe tener entre 2 y 30 caracteres, solo letras y espacios.",
     creating: "⏳ Creando tu usuario en Starwin...",
-    // ✅ Etiquetas de cuenta creada (el dato se manda como mensaje aparte, copiable)
+    // Etiquetas de cuenta creada (el dato se manda como mensaje aparte, copiable)
     createdUserLabel: "👤 Tu usuario es:",
     createdPassLabel: "🔑 Tu contraseña es:",
     createdUrlLabel: "🌐 Ingresá acá:",
@@ -33,7 +33,12 @@ const DEFAULT_CONFIG = {
     createdTemplate: "✅ ¡Tu cuenta ha sido creada!\n\n👤 Usuario: {{username}}\n🔑 Contraseña: {{password}}\n🌐 Sitio: {{url}}\n\n¡Ya puedes ingresar y empezar a jugar!",
     askDeposit: "¿Deseas realizar un depósito ahora? Responde SI o NO",
     depositYes: "💰 Perfecto, un operador se contactará contigo en breve para procesar tu depósito.\n\n¡Gracias por confiar en Starwin!",
-    depositNo: "👍 No hay problema. Puedes depositar cuando quieras desde tu cuenta.\n\n¡Nos vemos en el juego!"
+    depositNo: "👍 No hay problema. Puedes depositar cuando quieras desde tu cuenta.\n\n¡Nos vemos en el juego!",
+    // ✅ NUEVOS: Mensajes configurables v2
+    welcomeBackMessage: "¡Hola de nuevo! 👋 Ya tenés tu cuenta creada.\n\nSi querés hacer un depósito escribí *DEPOSITO*\nSi necesitás ayuda escribí *SOPORTE*\nSi necesitás info escribí *INFO*",
+    creatingUserWaitMessage: "⏳ Estamos creando tu cuenta, esperá un momento por favor...",
+    proofReminderMessage: "⏰ ¡Recordatorio! ¿Ya pudiste hacer la transferencia?\n\nAcordate de mandar la *foto del comprobante* por acá.\nSi necesitás los datos de nuevo escribí *DEPOSITO*",
+    proofReminderMinutes: 15
   },
   starwin: {
     baseUrl: "https://admin.starwin.plus",
