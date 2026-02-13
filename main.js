@@ -693,6 +693,45 @@ app.whenReady().then(async () => {
     }
   });
 
+  // ✅ NUEVO: Persistencia de nombres de líneas
+  const lineNamesFile = path.join(userDataPath, "config", "line-names.json");
+
+  function loadLineNames() {
+    try {
+      if (fs.existsSync(lineNamesFile)) {
+        return JSON.parse(fs.readFileSync(lineNamesFile, "utf-8"));
+      }
+    } catch (e) {
+      console.error("[MAIN] Error leyendo line-names.json:", e.message);
+    }
+    return {};
+  }
+
+  function saveLineNames(names) {
+    try {
+      const dir = path.dirname(lineNamesFile);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(lineNamesFile, JSON.stringify(names, null, 2), "utf-8");
+    } catch (e) {
+      console.error("[MAIN] Error guardando line-names.json:", e.message);
+    }
+  }
+
+  ipcMain.handle("lines:get-names", async () => {
+    return loadLineNames();
+  });
+
+  ipcMain.handle("lines:set-name", async (_e, lineId, name) => {
+    const names = loadLineNames();
+    if (name && name.trim()) {
+      names[lineId] = name.trim();
+    } else {
+      delete names[lineId];
+    }
+    saveLineNames(names);
+    return { ok: true, names };
+  });
+
   ipcMain.handle("config:get", async () => configStore.get());
   ipcMain.handle("config:set", async (_e, patch) => configStore.update(patch));
   ipcMain.handle("sessions:count", async () => sessionStore.countAll ? sessionStore.countAll() : sessionStore.count());

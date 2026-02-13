@@ -16,6 +16,7 @@ class BotEngine {
 
   // ✅ Recibe metadata del mensaje (type/hasMedia/mimetype) para manejar WAIT_PROOF con fotos
   async handleIncoming({ lineId, from, text, ts, type = "chat", hasMedia = false, mimetype = null }) {
+    try {
     console.log(
       `[ENGINE] handleIncoming: lineId=${lineId}, from=${from}, text="${text}", type=${type}, hasMedia=${hasMedia}, mimetype=${mimetype}`
     );
@@ -610,6 +611,18 @@ class BotEngine {
       text: msg.substring(0, 50),
       message: "Mensaje recibido, iniciando flujo de creación automático"
     });
+
+    } catch (error) {
+      // ✅ GUARD GLOBAL: Nunca dejar que un error en el engine crashee la línea de WhatsApp
+      console.error(`[ENGINE] ERROR FATAL en handleIncoming:`, error);
+      this._log?.("ENGINE_FATAL_ERROR", {
+        lineId,
+        from,
+        error: error.message,
+        stack: error.stack?.substring(0, 300),
+        message: "Error no capturado en handleIncoming — la línea NO se desconecta"
+      });
+    }
   }
 
   // ═══════════════════════════════════════
@@ -712,6 +725,9 @@ class BotEngine {
         timestamp: Date.now()
       });
     }
+
+    // ✅ Pequeño delay entre mensajes para evitar anti-spam de WhatsApp
+    await new Promise(r => setTimeout(r, 800));
   }
 
   async _sendImage(lineId, to, imagePath, caption = "") {
@@ -748,6 +764,9 @@ class BotEngine {
         message: "Error enviando imagen de depósito"
       });
     }
+
+    // ✅ Delay después de enviar imagen
+    await new Promise(r => setTimeout(r, 1000));
   }
 
   async _setState(lineId, chatId, state) {

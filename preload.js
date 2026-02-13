@@ -6,6 +6,9 @@ contextBridge.exposeInMainWorld("api", {
   linesStart: (lineId) => ipcRenderer.invoke("lines:start", lineId),
   linesStop: (lineId) => ipcRenderer.invoke("lines:stop", lineId),
   linesStatus: (lineId) => ipcRenderer.invoke("lines:status", lineId),
+  // ✅ NUEVO: Nombres editables de líneas
+  linesGetNames: () => ipcRenderer.invoke("lines:get-names"),
+  linesSetName: (lineId, name) => ipcRenderer.invoke("lines:set-name", lineId, name),
 
   // Config
   configGet: () => ipcRenderer.invoke("config:get"),

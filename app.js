@@ -4,6 +4,7 @@ const $$ = (sel) => document.querySelectorAll(sel);
 
 const state = {
     lines: [],
+    lineNames: {},  // ✅ NUEVO: nombres editables de líneas
     statuses: {},
     consoles: {
         global: [],
@@ -84,7 +85,7 @@ function createConsoleTabs() {
         { id: 'global', name: 'Global', icon: 'fas fa-globe' },
         ...state.lines.map(line => ({
             id: line.lineId,
-            name: line.lineId,
+            name: getDisplayName(line.lineId),
             icon: getLineIcon(line.lineId)
         }))
     ];
@@ -117,14 +118,22 @@ function getLineIcon(lineId) {
 
 async function refreshLines() {
     try {
-        const lines = await window.api.linesList();
+        const [lines, names] = await Promise.all([
+            window.api.linesList(),
+            window.api.linesGetNames()
+        ]);
         state.lines = lines;
+        state.lineNames = names || {};
         renderLines();
         createConsoleTabs();
         updateStats();
     } catch (error) {
         pushLog(null, `[ERROR] Error refrescando líneas: ${error.message}`, 'error');
     }
+}
+
+function getDisplayName(lineId) {
+    return state.lineNames[lineId] || lineId;
 }
 
 function renderLines() {
@@ -136,6 +145,7 @@ function renderLines() {
     for (const line of state.lines) {
         const st = state.statuses[line.lineId] || { state: "STOPPED" };
         const status = st.state || "STOPPED";
+        const displayName = getDisplayName(line.lineId);
         
         const row = document.createElement('div');
         row.className = 'line-row';
@@ -145,7 +155,10 @@ function renderLines() {
             <div class="line-header">
                 <div class="line-id">
                     <i class="fas fa-mobile-alt"></i>
-                    ${line.lineId}
+                    <span class="line-display-name">${escapeHtml(displayName)}</span>
+                    <button class="btn-edit-name" data-edit-line="${line.lineId}" title="Editar nombre" style="background:none;border:none;color:#64748b;cursor:pointer;padding:2px 4px;font-size:12px;transition:color .2s;">
+                        <i class="fas fa-pencil-alt"></i>
+                    </button>
                 </div>
                 <div class="line-status status-${status}">${status}</div>
             </div>
@@ -185,12 +198,77 @@ function renderLines() {
     }
 }
 
+// ✅ NUEVO: Edición inline del nombre de línea
+function startEditLineName(lineId, editBtn) {
+    const row = editBtn.closest('.line-row');
+    if (!row) return;
+    
+    const nameSpan = row.querySelector('.line-display-name');
+    if (!nameSpan) return;
+
+    // Si ya hay un input de edición activo, no abrir otro
+    if (row.querySelector('.line-name-input')) return;
+
+    const currentName = state.lineNames[lineId] || lineId;
+    
+    // Reemplazar span por input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'line-name-input';
+    input.value = currentName;
+    input.maxLength = 30;
+    input.style.cssText = 'background:rgba(15,23,42,0.9);border:1px solid #3b82f6;border-radius:4px;color:#fff;font-size:13px;font-weight:600;padding:2px 6px;width:120px;outline:none;';
+    
+    nameSpan.style.display = 'none';
+    editBtn.style.display = 'none';
+    nameSpan.parentNode.insertBefore(input, nameSpan);
+    input.focus();
+    input.select();
+
+    async function saveName() {
+        const newName = input.value.trim();
+        input.remove();
+        nameSpan.style.display = '';
+        editBtn.style.display = '';
+
+        if (newName && newName !== lineId) {
+            state.lineNames[lineId] = newName;
+            nameSpan.textContent = newName;
+        } else if (!newName || newName === lineId) {
+            delete state.lineNames[lineId];
+            nameSpan.textContent = lineId;
+        }
+
+        try {
+            await window.api.linesSetName(lineId, newName === lineId ? '' : newName);
+            createConsoleTabs(); // Actualizar tabs de consola
+        } catch (error) {
+            pushLog(null, `[ERROR] Error guardando nombre: ${error.message}`, 'error');
+        }
+    }
+
+    input.addEventListener('blur', saveName);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = currentName; input.blur(); }
+    });
+}
+
 // Event delegation separado (se bindea una sola vez en init)
 function setupLinesClickHandler() {
     const container = $('#lines');
     if (!container) return;
     
     container.addEventListener('click', async (e) => {
+        // ✅ NUEVO: Click en el lápiz de edición
+        const editBtn = e.target.closest('.btn-edit-name');
+        if (editBtn) {
+            e.stopPropagation();
+            const lineId = editBtn.dataset.editLine;
+            startEditLineName(lineId, editBtn);
+            return;
+        }
+
         const btn = e.target.closest('button');
         if (!btn) {
             // Click en la línea completa → abrir consola
@@ -450,10 +528,12 @@ function init() {
         
         rows.forEach(row => {
             const lineId = row.dataset.lineId?.toLowerCase() || '';
+            const displayName = (state.lineNames[row.dataset.lineId] || '').toLowerCase();
             const pushname = row.querySelector('.line-pushname')?.textContent.toLowerCase() || '';
             const wid = row.querySelector('.line-wid')?.textContent.toLowerCase() || '';
             
             const matches = lineId.includes(searchTerm) || 
+                          displayName.includes(searchTerm) ||
                           pushname.includes(searchTerm) || 
                           wid.includes(searchTerm);
             
