@@ -178,6 +178,33 @@ class BotEngine {
         return;
       }
 
+      // ✅ FIX: Permitir comandos que sacan del estado WAIT_PROOF
+      if (isIntent(normalizedInProof, "MENU") || isIntent(normalizedInProof, "REINICIAR") || isIntent(normalizedInProof, "CANCELAR")) {
+        this._cancelProofReminder(lineId, from);
+        this.sessionStore.upsert(lineId, from, (s) => {
+          s.completed = false;
+          return s;
+        });
+        await this._setState(lineId, from, "WAIT_NAME");
+        await this._reply(lineId, from, cfg.createUser.askName);
+        await this._log("PROOF_CMD_RESTART", { lineId, from, text: normalizedInProof });
+        return;
+      }
+
+      if (isIntent(normalizedInProof, "INFO")) {
+        this._cancelProofReminder(lineId, from);
+        await this._reply(lineId, from, cfg.info.text);
+        await this._log("PROOF_CMD_INFO", { lineId, from });
+        return;
+      }
+
+      if (isIntent(normalizedInProof, "SOPORTE")) {
+        this._cancelProofReminder(lineId, from);
+        await this._reply(lineId, from, cfg.support.text);
+        await this._log("PROOF_CMD_SOPORTE", { lineId, from });
+        return;
+      }
+
       await this._reply(lineId, from, "📸 Por favor, enviá el comprobante como *foto* (no en texto).");
       await this._log("PROOF_EXPECTED_IMAGE", {
         lineId,

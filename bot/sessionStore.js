@@ -100,6 +100,7 @@ class SessionStore {
       return this.upsert(lineId, chatId, (s) => {
         s.state = "MENU";
         s.data = {};
+        s.completed = false; // ✅ FIX: Limpiar completed para que el usuario pueda empezar de nuevo
         return s;
       });
     }
