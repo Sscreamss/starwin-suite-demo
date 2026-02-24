@@ -1,6 +1,12 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("api", {
+  // ✅ Window controls (titlebar custom)
+  windowMinimize: () => ipcRenderer.invoke("window:minimize"),
+  windowMaximize: () => ipcRenderer.invoke("window:maximize"),
+  windowClose: () => ipcRenderer.invoke("window:close"),
+  windowIsMaximized: () => ipcRenderer.invoke("window:isMaximized"),
+
   // Lines
   linesList: () => ipcRenderer.invoke("lines:list"),
   linesStart: (lineId) => ipcRenderer.invoke("lines:start", lineId),

@@ -34,6 +34,10 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1600,
     height: 900,
+    minWidth: 900,
+    minHeight: 600,
+    frame: false,           // ✅ Sin barra nativa de Windows
+    titleBarStyle: 'hidden', 
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -688,6 +692,19 @@ app.whenReady().then(async () => {
   lineManager.setEngine(botEngine);
 
   // IPC HANDLERS
+
+  // ✅ Window controls (titlebar custom)
+  ipcMain.handle("window:minimize", () => mainWindow?.minimize());
+  ipcMain.handle("window:maximize", () => {
+    if (mainWindow?.isMaximized()) {
+      mainWindow.unmaximize();
+    } else {
+      mainWindow?.maximize();
+    }
+  });
+  ipcMain.handle("window:close", () => mainWindow?.close());
+  ipcMain.handle("window:isMaximized", () => mainWindow?.isMaximized() ?? false);
+
   ipcMain.handle("lines:list", async () => {
     try {
       return await lineManager.listLines();
