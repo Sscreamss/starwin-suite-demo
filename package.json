@@ -1,6 +1,6 @@
 {
   "name": "botdash",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Dashboard de gestión para WhatsApp Bot con Google Sheets",
   "author": "Martin Kroh",
   "main": "main.js",
@@ -87,7 +87,7 @@
   "dependencies": {
     "axios": "^1.6.0",
     "axios-cookiejar-support": "^4.0.0",
-    "electron-updater": "^6.7.3",
+    "electron-updater": "^6.1.0",
     "googleapis": "^126.0.0",
     "puppeteer-core": "^21.0.0",
     "qrcode-terminal": "^0.12.0",
