@@ -1,6 +1,6 @@
 {
   "name": "botdash",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Dashboard de gestión para WhatsApp Bot con Google Sheets",
   "author": "Martin Kroh",
   "main": "main.js",
@@ -19,8 +19,8 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "OWNER",
-        "repo": "REPO"
+        "owner": "Sscreamss",
+        "repo": "starwin-suite-demo"
       }
     ],
     "directories": {
