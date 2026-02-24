@@ -56,12 +56,10 @@ function renderStats(stats) {
 function renderUsersChart(data) {
     const ctx = document.getElementById('chartUsers');
     
-    // Destruir gráfico anterior si existe
     if (chartUsers) {
         chartUsers.destroy();
     }
     
-    // Preparar datos
     const labels = data.map(d => d.date);
     const values = data.map(d => d.count);
     
@@ -130,16 +128,13 @@ function renderUsersChart(data) {
 function renderLinesChart(byLine) {
     const ctx = document.getElementById('chartLines');
     
-    // Destruir gráfico anterior si existe
     if (chartLines) {
         chartLines.destroy();
     }
     
-    // Preparar datos
     const labels = Object.keys(byLine);
     const values = Object.values(byLine);
     
-    // Colores para cada línea
     const colors = [
         '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
         '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6'
@@ -194,16 +189,13 @@ function renderUsersTable(users) {
     users.forEach(user => {
         const row = document.createElement('tr');
         
-        // Formatear teléfono (mostrar solo últimos 4 dígitos)
-        const phone = user.telefono || '';
-        const phoneDisplay = phone.length > 4 
-            ? `...${phone.slice(-4)}` 
-            : phone;
+        // ✅ FIX: Mostrar teléfono completo (ya viene limpio del backend)
+        const phone = user.telefono || 'N/A';
         
         row.innerHTML = `
             <td>${escapeHtml(user.nombre || 'N/A')}</td>
             <td><code>${escapeHtml(user.usuario || 'N/A')}</code></td>
-            <td>${escapeHtml(phoneDisplay)}</td>
+            <td>${escapeHtml(phone)}</td>
             <td>${escapeHtml(user.fecha || 'N/A')}</td>
             <td><span class="badge badge-success">${escapeHtml(user.linea || 'N/A')}</span></td>
             <td>

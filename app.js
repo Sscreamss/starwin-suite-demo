@@ -739,50 +739,51 @@ function initAutoUpdater() {
         if (el) el.textContent = `v${version}`;
     });
 
-    // Inyectar banner de actualización (oculto por defecto)
-    const banner = document.createElement('div');
-    banner.id = 'updateBanner';
-    banner.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:10px 20px;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;font-size:13px;font-weight:600;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.3);';
-    banner.innerHTML = `
-        <span id="updateMessage">Nueva versión disponible</span>
-        <span id="updateProgress" style="display:none;margin-left:10px;"></span>
-        <button id="btnDownloadUpdate" style="margin-left:12px;background:#fff;color:#1e40af;border:none;padding:5px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">
-            <i class="fas fa-download"></i> Descargar
-        </button>
-        <button id="btnInstallUpdate" style="display:none;margin-left:12px;background:#10b981;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">
-            <i class="fas fa-sync-alt"></i> Instalar y reiniciar
-        </button>
-        <button id="btnDismissUpdate" style="margin-left:8px;background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:14px;" title="Cerrar">
-            <i class="fas fa-times"></i>
-        </button>
+    // ✅ Inyectar modal de actualización (popup centrado, más visible)
+    const overlay = document.createElement('div');
+    overlay.id = 'updateOverlay';
+    overlay.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;';
+    overlay.innerHTML = `
+        <div id="updateModal" style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(59,130,246,.4);border-radius:16px;padding:32px 40px;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e2e8f0;">
+            <div style="font-size:48px;margin-bottom:16px;">🚀</div>
+            <h2 id="updateTitle" style="margin:0 0 8px;font-size:20px;color:#fff;">Actualización disponible</h2>
+            <p id="updateMessage" style="margin:0 0 20px;font-size:14px;color:#94a3b8;">Descargando...</p>
+            <div id="updateProgressBar" style="display:none;background:rgba(59,130,246,.15);border-radius:8px;height:8px;margin-bottom:20px;overflow:hidden;">
+                <div id="updateProgressFill" style="height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:8px;width:0%;transition:width .3s ease;"></div>
+            </div>
+            <p id="updatePercent" style="display:none;font-size:13px;color:#64748b;margin:-12px 0 16px;">0%</p>
+            <div style="display:flex;gap:10px;justify-content:center;">
+                <button id="btnInstallUpdate" style="display:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:12px 28px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;transition:all .2s;">
+                    <i class="fas fa-sync-alt"></i> Instalar y reiniciar
+                </button>
+                <button id="btnDismissUpdate" style="display:none;background:rgba(100,116,139,.3);color:#94a3b8;border:none;padding:12px 20px;border-radius:10px;font-weight:600;cursor:pointer;font-size:13px;">
+                    Más tarde
+                </button>
+            </div>
+        </div>
     `;
-    document.body.prepend(banner);
+    document.body.appendChild(overlay);
 
-    // Handlers de los botones
-    document.getElementById('btnDownloadUpdate')?.addEventListener('click', async () => {
-        const btn = document.getElementById('btnDownloadUpdate');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Descargando...';
-        pushLog(null, '[UPDATE] Descargando actualización...', 'info');
-        await window.api.updaterDownload();
-    });
-
+    // Handlers
     document.getElementById('btnInstallUpdate')?.addEventListener('click', async () => {
         pushLog(null, '[UPDATE] Instalando y reiniciando...', 'info');
         await window.api.updaterInstall();
     });
 
     document.getElementById('btnDismissUpdate')?.addEventListener('click', () => {
-        document.getElementById('updateBanner').style.display = 'none';
+        document.getElementById('updateOverlay').style.display = 'none';
     });
 
     // Escuchar eventos del updater
     window.api.onUpdaterStatus?.((data) => {
-        const banner = document.getElementById('updateBanner');
+        const overlay = document.getElementById('updateOverlay');
+        const title = document.getElementById('updateTitle');
         const msg = document.getElementById('updateMessage');
-        const btnDownload = document.getElementById('btnDownloadUpdate');
         const btnInstall = document.getElementById('btnInstallUpdate');
-        const progress = document.getElementById('updateProgress');
+        const btnDismiss = document.getElementById('btnDismissUpdate');
+        const progressBar = document.getElementById('updateProgressBar');
+        const progressFill = document.getElementById('updateProgressFill');
+        const percentText = document.getElementById('updatePercent');
 
         switch (data.status) {
             case 'checking':
@@ -790,14 +791,8 @@ function initAutoUpdater() {
                 break;
 
             case 'available':
-                banner.style.display = '';
-                msg.textContent = `🎉 Nueva versión disponible: v${data.version}`;
-                btnDownload.style.display = '';
-                btnDownload.disabled = false;
-                btnDownload.innerHTML = '<i class="fas fa-download"></i> Descargar';
-                btnInstall.style.display = 'none';
-                progress.style.display = 'none';
-                pushLog(null, `[UPDATE] ✅ v${data.version} disponible`, 'success');
+                // autoDownload=true → se descarga sola, no mostramos nada todavía
+                pushLog(null, `[UPDATE] ✅ v${data.version} encontrada, descargando...`, 'success');
                 break;
 
             case 'up-to-date':
@@ -805,29 +800,34 @@ function initAutoUpdater() {
                 break;
 
             case 'downloaded':
-                banner.style.display = '';
-                msg.textContent = `📦 v${data.version} descargada — lista para instalar`;
-                btnDownload.style.display = 'none';
+                // ✅ Mostrar popup centrado cuando está lista para instalar
+                overlay.style.display = 'flex';
+                title.textContent = '¡Nueva versión lista!';
+                msg.textContent = `La versión v${data.version} se descargó correctamente y está lista para instalar.`;
+                progressBar.style.display = 'none';
+                percentText.style.display = 'none';
                 btnInstall.style.display = '';
-                progress.style.display = 'none';
+                btnDismiss.style.display = '';
                 pushLog(null, `[UPDATE] ✅ v${data.version} descargada, lista para instalar`, 'success');
                 break;
 
             case 'error':
                 pushLog(null, `[UPDATE] ❌ Error: ${data.error}`, 'error');
-                if (btnDownload) {
-                    btnDownload.disabled = false;
-                    btnDownload.innerHTML = '<i class="fas fa-download"></i> Reintentar';
-                }
                 break;
         }
     });
 
     window.api.onUpdaterProgress?.((data) => {
-        const progress = document.getElementById('updateProgress');
-        if (progress) {
-            progress.style.display = '';
-            progress.textContent = `${data.percent}%`;
+        const progressBar = document.getElementById('updateProgressBar');
+        const progressFill = document.getElementById('updateProgressFill');
+        const percentText = document.getElementById('updatePercent');
+        if (progressBar && progressFill) {
+            progressBar.style.display = '';
+            progressFill.style.width = `${data.percent}%`;
+        }
+        if (percentText) {
+            percentText.style.display = '';
+            percentText.textContent = `Descargando... ${data.percent}%`;
         }
     });
 }

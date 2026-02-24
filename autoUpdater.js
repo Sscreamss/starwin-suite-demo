@@ -19,7 +19,7 @@ function setupAutoUpdater(win, onLog) {
   updateLog = onLog;
 
   // ✅ Configuración
-  autoUpdater.autoDownload = false;           // No descargar automáticamente, preguntar primero
+  autoUpdater.autoDownload = true;            // ✅ Descargar automáticamente en background
   autoUpdater.autoInstallOnAppQuit = true;    // Instalar al cerrar la app
   autoUpdater.allowDowngrade = false;
 
