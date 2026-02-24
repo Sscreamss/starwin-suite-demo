@@ -548,19 +548,49 @@ function scheduleAutoRenewal(configStore) {
     });
   }, intervalMs);
 
-  // Primera verificación al iniciar
+  // Primera verificación al iniciar — ✅ FORZAR renovación para restaurar sesión de Puppeteer
   setTimeout(() => {
     sendLog({
       type: "CF_AUTO_RENEW_INITIAL",
-      message: "🚀 Verificación inicial de CF al arrancar..."
+      message: "🚀 Renovando CF al arrancar (restaurar sesión de Puppeteer)..."
     });
 
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send("cf:timer-reset", { intervalMinutes });
     }
 
-    autoRenewCfIfNeeded(configStore).catch(err => {
+    // Forzar renovación siempre al iniciar, porque puppeteerPage se pierde al cerrar la app
+    autoRenewInProgress = true;
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("cf:auto-renew-status", { status: "renewing" });
+    }
+
+    renewStarwinClearanceWithExtension(configStore).then(result => {
+      if (result.ok) {
+        cfMaintainer.resetAttempts();
+        sendLog({
+          type: "CF_STARTUP_RENEW_SUCCESS",
+          message: `✅ Sesión de Puppeteer restaurada al iniciar - ${result.cookie?.totalCookies || 0} cookies`
+        });
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("cf:auto-renewed", { ok: true });
+        }
+      } else {
+        sendLog({
+          type: "CF_STARTUP_RENEW_FAILED",
+          message: `⚠️ No se pudo restaurar sesión al iniciar: ${result.error || "unknown"}`
+        });
+      }
+      autoRenewInProgress = false;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("cf:auto-renew-status", { status: "idle" });
+      }
+    }).catch(err => {
       console.error("Error en renovación inicial:", err);
+      autoRenewInProgress = false;
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("cf:auto-renew-status", { status: "idle" });
+      }
     });
   }, INITIAL_DELAY);
 }

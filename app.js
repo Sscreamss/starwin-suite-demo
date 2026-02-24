@@ -752,10 +752,13 @@ function initAutoUpdater() {
         if (el) el.textContent = `v${version}`;
     });
 
-    // ✅ Overlay bloqueante: se muestra al arrancar mientras verifica
+    // ✅ Solo mostrar overlay bloqueante en el primer arranque real
+    // Al volver del dashboard no bloquear (el check ya se hizo)
+    const isFirstLoad = !sessionStorage.getItem('updateChecked');
+
     const overlay = document.createElement('div');
     overlay.id = 'updateOverlay';
-    overlay.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;';
+    overlay.style.cssText = `display:${isFirstLoad ? 'flex' : 'none'};position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;`;
     overlay.innerHTML = `
         <div id="updateModal" style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(59,130,246,.4);border-radius:16px;padding:36px 44px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e2e8f0;">
             <div id="updateIcon" style="font-size:48px;margin-bottom:16px;">
@@ -800,7 +803,8 @@ function initAutoUpdater() {
                 break;
 
             case 'available':
-                // Hay update → mostrar que está descargando (overlay sigue bloqueando)
+                // Hay update → mostrar overlay bloqueante (incluso si viene del check de 24h)
+                overlay.style.display = 'flex';
                 icon.innerHTML = '<i class="fas fa-cloud-download-alt fa-beat" style="color:#3b82f6;"></i>';
                 title.textContent = 'Descargando actualización...';
                 msg.textContent = `Nueva versión v${data.version} encontrada`;
@@ -810,8 +814,9 @@ function initAutoUpdater() {
                 break;
 
             case 'up-to-date':
-                // Todo al día → cerrar overlay y dejar usar la app
+                // Todo al día → cerrar overlay y marcar como verificado
                 overlay.style.display = 'none';
+                sessionStorage.setItem('updateChecked', '1');
                 pushLog(null, `[UPDATE] Ya tenés la última versión (v${data.version})`, 'info');
                 break;
 
@@ -828,8 +833,9 @@ function initAutoUpdater() {
 
             case 'error':
             case 'offline':
-                // Error o sin internet → dejar usar la app igual
+                // Error o sin internet → dejar usar la app
                 overlay.style.display = 'none';
+                sessionStorage.setItem('updateChecked', '1');
                 pushLog(null, `[UPDATE] ⚠️ No se pudo verificar actualizaciones, continuando...`, 'warning');
                 break;
         }
