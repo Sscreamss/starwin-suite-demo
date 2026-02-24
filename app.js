@@ -752,15 +752,17 @@ function initAutoUpdater() {
         if (el) el.textContent = `v${version}`;
     });
 
-    // ✅ Inyectar modal de actualización (popup centrado, más visible)
+    // ✅ Overlay bloqueante: se muestra al arrancar mientras verifica
     const overlay = document.createElement('div');
     overlay.id = 'updateOverlay';
-    overlay.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;z-index:99999;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);align-items:center;justify-content:center;';
     overlay.innerHTML = `
-        <div id="updateModal" style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(59,130,246,.4);border-radius:16px;padding:32px 40px;max-width:420px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e2e8f0;">
-            <div style="font-size:48px;margin-bottom:16px;">🚀</div>
-            <h2 id="updateTitle" style="margin:0 0 8px;font-size:20px;color:#fff;">Actualización disponible</h2>
-            <p id="updateMessage" style="margin:0 0 20px;font-size:14px;color:#94a3b8;">Descargando...</p>
+        <div id="updateModal" style="background:linear-gradient(135deg,#1e293b,#0f172a);border:1px solid rgba(59,130,246,.4);border-radius:16px;padding:36px 44px;max-width:440px;width:90%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.5);color:#e2e8f0;">
+            <div id="updateIcon" style="font-size:48px;margin-bottom:16px;">
+                <i class="fas fa-spinner fa-spin" style="color:#3b82f6;"></i>
+            </div>
+            <h2 id="updateTitle" style="margin:0 0 8px;font-size:20px;color:#fff;">Verificando actualizaciones...</h2>
+            <p id="updateMessage" style="margin:0 0 20px;font-size:14px;color:#94a3b8;">Conectando con el servidor...</p>
             <div id="updateProgressBar" style="display:none;background:rgba(59,130,246,.15);border-radius:8px;height:8px;margin-bottom:20px;overflow:hidden;">
                 <div id="updateProgressFill" style="height:100%;background:linear-gradient(90deg,#3b82f6,#60a5fa);border-radius:8px;width:0%;transition:width .3s ease;"></div>
             </div>
@@ -769,77 +771,77 @@ function initAutoUpdater() {
                 <button id="btnInstallUpdate" style="display:none;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;padding:12px 28px;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;transition:all .2s;">
                     <i class="fas fa-sync-alt"></i> Instalar y reiniciar
                 </button>
-                <button id="btnDismissUpdate" style="display:none;background:rgba(100,116,139,.3);color:#94a3b8;border:none;padding:12px 20px;border-radius:10px;font-weight:600;cursor:pointer;font-size:13px;">
-                    Más tarde
-                </button>
             </div>
         </div>
     `;
     document.body.appendChild(overlay);
 
-    // Handlers
+    // Handler del botón instalar
     document.getElementById('btnInstallUpdate')?.addEventListener('click', async () => {
         pushLog(null, '[UPDATE] Instalando y reiniciando...', 'info');
         await window.api.updaterInstall();
     });
 
-    document.getElementById('btnDismissUpdate')?.addEventListener('click', () => {
-        document.getElementById('updateOverlay').style.display = 'none';
-    });
-
     // Escuchar eventos del updater
     window.api.onUpdaterStatus?.((data) => {
         const overlay = document.getElementById('updateOverlay');
+        const icon = document.getElementById('updateIcon');
         const title = document.getElementById('updateTitle');
         const msg = document.getElementById('updateMessage');
         const btnInstall = document.getElementById('btnInstallUpdate');
-        const btnDismiss = document.getElementById('btnDismissUpdate');
         const progressBar = document.getElementById('updateProgressBar');
         const progressFill = document.getElementById('updateProgressFill');
         const percentText = document.getElementById('updatePercent');
 
         switch (data.status) {
             case 'checking':
+                // Ya se muestra el spinner al arrancar
                 pushLog(null, '[UPDATE] Verificando actualizaciones...', 'info');
                 break;
 
             case 'available':
-                // autoDownload=true → se descarga sola, no mostramos nada todavía
+                // Hay update → mostrar que está descargando (overlay sigue bloqueando)
+                icon.innerHTML = '<i class="fas fa-cloud-download-alt fa-beat" style="color:#3b82f6;"></i>';
+                title.textContent = 'Descargando actualización...';
+                msg.textContent = `Nueva versión v${data.version} encontrada`;
+                progressBar.style.display = '';
+                percentText.style.display = '';
                 pushLog(null, `[UPDATE] ✅ v${data.version} encontrada, descargando...`, 'success');
                 break;
 
             case 'up-to-date':
+                // Todo al día → cerrar overlay y dejar usar la app
+                overlay.style.display = 'none';
                 pushLog(null, `[UPDATE] Ya tenés la última versión (v${data.version})`, 'info');
                 break;
 
             case 'downloaded':
-                // ✅ Mostrar popup centrado cuando está lista para instalar
-                overlay.style.display = 'flex';
-                title.textContent = '¡Nueva versión lista!';
-                msg.textContent = `La versión v${data.version} se descargó correctamente y está lista para instalar.`;
+                // Descarga lista → obligar a instalar (sin botón "más tarde")
+                icon.innerHTML = '🚀';
+                title.textContent = '¡Actualización lista!';
+                msg.textContent = `La versión v${data.version} se descargó. Instalá para continuar.`;
                 progressBar.style.display = 'none';
                 percentText.style.display = 'none';
                 btnInstall.style.display = '';
-                btnDismiss.style.display = '';
                 pushLog(null, `[UPDATE] ✅ v${data.version} descargada, lista para instalar`, 'success');
                 break;
 
             case 'error':
-                pushLog(null, `[UPDATE] ❌ Error: ${data.error}`, 'error');
+            case 'offline':
+                // Error o sin internet → dejar usar la app igual
+                overlay.style.display = 'none';
+                pushLog(null, `[UPDATE] ⚠️ No se pudo verificar actualizaciones, continuando...`, 'warning');
                 break;
         }
     });
 
     window.api.onUpdaterProgress?.((data) => {
-        const progressBar = document.getElementById('updateProgressBar');
         const progressFill = document.getElementById('updateProgressFill');
         const percentText = document.getElementById('updatePercent');
-        if (progressBar && progressFill) {
-            progressBar.style.display = '';
+        if (progressFill) {
             progressFill.style.width = `${data.percent}%`;
         }
         if (percentText) {
-            percentText.style.display = '';
             percentText.textContent = `Descargando... ${data.percent}%`;
         }
     });

@@ -979,7 +979,10 @@ app.whenReady().then(async () => {
   });
 
   createMainWindow();
+
+  // ✅ Auto-updater PRIMERO — verifica antes de inicializar el resto
   setupAutoUpdater(mainWindow, sendLog);
+
   scheduleAutoRenewal(configStore);
 
   app.on("activate", () => {

@@ -112,14 +112,23 @@ function setupAutoUpdater(win, onLog) {
   });
 
   // ═══════════════════════════════════════
-  // CHECK INICIAL (30 segundos después de arrancar)
+  // ✅ CHECK INMEDIATO al arrancar (sin delay)
   // ═══════════════════════════════════════
-  setTimeout(() => {
-    log("🚀 Verificación inicial de actualizaciones...");
+  log("🚀 Verificación de actualizaciones al iniciar...");
+  autoUpdater.checkForUpdates().catch((err) => {
+    log(`⚠️ No se pudo verificar actualizaciones: ${err.message}`);
+    // Si falla (sin internet), dejar usar la app normalmente
+    sendToRenderer("updater:status", { status: "offline" });
+  });
+
+  // ✅ Re-verificar cada 24 horas por si dejaron la app abierta
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  setInterval(() => {
+    log("🔄 Verificación periódica de actualizaciones (24h)...");
     autoUpdater.checkForUpdates().catch((err) => {
       log(`⚠️ No se pudo verificar actualizaciones: ${err.message}`);
     });
-  }, 30000);
+  }, TWENTY_FOUR_HOURS);
 }
 
 function sendToRenderer(channel, data) {
