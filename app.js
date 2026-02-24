@@ -124,6 +124,19 @@ async function refreshLines() {
         ]);
         state.lines = lines;
         state.lineNames = names || {};
+
+        // ✅ FIX: Obtener estado real de cada línea del backend
+        // (así al volver del dashboard se muestran correctamente)
+        const statusPromises = lines.map(line =>
+            window.api.linesStatus(line.lineId)
+                .then(st => ({ lineId: line.lineId, ...st }))
+                .catch(() => ({ lineId: line.lineId, state: "STOPPED" }))
+        );
+        const statuses = await Promise.all(statusPromises);
+        statuses.forEach(st => {
+            state.statuses[st.lineId] = { ...state.statuses[st.lineId], ...st };
+        });
+
         renderLines();
         createConsoleTabs();
         updateStats();
