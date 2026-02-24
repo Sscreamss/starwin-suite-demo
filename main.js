@@ -9,6 +9,7 @@ const { BotEngine } = require("./bot/engine");
 const { CFMaintainer } = require("./bot/cfMaintainer");
 const { LineManager } = require("./whatsapp/lineManager");
 const { SheetsLogger } = require("./bot/sheetsLogger");
+const { setupAutoUpdater } = require("./autoUpdater");
 
 let mainWindow = null;
 let cfMaintainer = null;
@@ -973,6 +974,7 @@ app.whenReady().then(async () => {
   });
 
   createMainWindow();
+  setupAutoUpdater(mainWindow, sendLog);
   scheduleAutoRenewal(configStore);
 
   app.on("activate", () => {

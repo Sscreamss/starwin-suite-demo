@@ -57,6 +57,20 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.removeAllListeners("log:event");
     ipcRenderer.on("log:event", (_event, data) => callback(data));
   },
+  // ✅ Auto-updater
+  updaterCheck: () => ipcRenderer.invoke("updater:check"),
+  updaterDownload: () => ipcRenderer.invoke("updater:download"),
+  updaterInstall: () => ipcRenderer.invoke("updater:install"),
+  updaterGetVersion: () => ipcRenderer.invoke("updater:get-version"),
+  onUpdaterStatus: (callback) => {
+    ipcRenderer.removeAllListeners("updater:status");
+    ipcRenderer.on("updater:status", (_event, data) => callback(data));
+  },
+  onUpdaterProgress: (callback) => {
+    ipcRenderer.removeAllListeners("updater:progress");
+    ipcRenderer.on("updater:progress", (_event, data) => callback(data));
+  },
+
   // ✅ Eventos de auto-renew
   onCfAutoRenewed: (callback) => {
     ipcRenderer.removeAllListeners("cf:auto-renewed");

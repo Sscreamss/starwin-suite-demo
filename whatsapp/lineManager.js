@@ -197,7 +197,7 @@ class LineManager {
         if (msg.from === "status@broadcast") return;
 
         try {
-          const from = msg.from;
+          let from = msg.from;
           const body = msg.body || "";
           const timestamp = new Date().toISOString();
 
@@ -205,14 +205,28 @@ class LineManager {
           const hasMedia = !!msg.hasMedia;
           const mimetype = msg?._data?.mimetype || null;
 
+          // ✅ FIX: Resolver número real para @lid (nuevo formato de WhatsApp)
+          let phoneNumber = "";
+          if (from.endsWith("@lid")) {
+            try {
+              const contact = await msg.getContact();
+              phoneNumber = contact?.number || contact?.id?._serialized?.replace("@c.us", "") || "";
+            } catch {
+              phoneNumber = "";
+            }
+          } else {
+            phoneNumber = from.replace("@c.us", "").replace("@s.whatsapp.net", "");
+          }
+
           this._log(
             "MESSAGE_RECEIVED",
-            `Mensaje de ${from}: ${body.substring(0, 50)} (type=${msgType}, hasMedia=${hasMedia})`,
+            `Mensaje de ${from}${phoneNumber ? ` (${phoneNumber})` : ''}: ${body.substring(0, 50)} (type=${msgType}, hasMedia=${hasMedia})`,
             lineId
           );
 
           this.onMessage?.(lineId, {
             from,
+            phoneNumber,
             body,
             timestamp,
             type: msgType,
@@ -224,6 +238,7 @@ class LineManager {
             await this.engine.handleIncoming({
               lineId,
               from,
+              phoneNumber,
               text: body,
               ts: timestamp,
               type: msgType,

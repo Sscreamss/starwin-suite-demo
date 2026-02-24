@@ -716,7 +716,8 @@ function init() {
     // Inicializar aplicación
     refreshLines();
     refreshCfStatus();
-    initCfTimer(); // ✅ NUEVO: Inicializar timer
+    initCfTimer();
+    initAutoUpdater(); // ✅ NUEVO: Auto-updater
     
     // Auto-refresh cada 30 segundos
     setInterval(() => {
@@ -725,6 +726,110 @@ function init() {
     }, 30000);
     
     pushLog(null, '[SYSTEM] Dashboard iniciado correctamente', 'success');
+}
+
+// ============================================
+// ✅ NUEVO: Auto-Updater UI
+// ============================================
+
+function initAutoUpdater() {
+    // Mostrar versión actual en el header
+    window.api.updaterGetVersion?.().then(version => {
+        const el = $('#appVersion');
+        if (el) el.textContent = `v${version}`;
+    });
+
+    // Inyectar banner de actualización (oculto por defecto)
+    const banner = document.createElement('div');
+    banner.id = 'updateBanner';
+    banner.style.cssText = 'display:none;position:fixed;top:0;left:0;right:0;z-index:9999;padding:10px 20px;background:linear-gradient(135deg,#1e40af,#3b82f6);color:#fff;font-size:13px;font-weight:600;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.3);';
+    banner.innerHTML = `
+        <span id="updateMessage">Nueva versión disponible</span>
+        <span id="updateProgress" style="display:none;margin-left:10px;"></span>
+        <button id="btnDownloadUpdate" style="margin-left:12px;background:#fff;color:#1e40af;border:none;padding:5px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">
+            <i class="fas fa-download"></i> Descargar
+        </button>
+        <button id="btnInstallUpdate" style="display:none;margin-left:12px;background:#10b981;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;">
+            <i class="fas fa-sync-alt"></i> Instalar y reiniciar
+        </button>
+        <button id="btnDismissUpdate" style="margin-left:8px;background:none;border:none;color:rgba(255,255,255,.7);cursor:pointer;font-size:14px;" title="Cerrar">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    document.body.prepend(banner);
+
+    // Handlers de los botones
+    document.getElementById('btnDownloadUpdate')?.addEventListener('click', async () => {
+        const btn = document.getElementById('btnDownloadUpdate');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Descargando...';
+        pushLog(null, '[UPDATE] Descargando actualización...', 'info');
+        await window.api.updaterDownload();
+    });
+
+    document.getElementById('btnInstallUpdate')?.addEventListener('click', async () => {
+        pushLog(null, '[UPDATE] Instalando y reiniciando...', 'info');
+        await window.api.updaterInstall();
+    });
+
+    document.getElementById('btnDismissUpdate')?.addEventListener('click', () => {
+        document.getElementById('updateBanner').style.display = 'none';
+    });
+
+    // Escuchar eventos del updater
+    window.api.onUpdaterStatus?.((data) => {
+        const banner = document.getElementById('updateBanner');
+        const msg = document.getElementById('updateMessage');
+        const btnDownload = document.getElementById('btnDownloadUpdate');
+        const btnInstall = document.getElementById('btnInstallUpdate');
+        const progress = document.getElementById('updateProgress');
+
+        switch (data.status) {
+            case 'checking':
+                pushLog(null, '[UPDATE] Verificando actualizaciones...', 'info');
+                break;
+
+            case 'available':
+                banner.style.display = '';
+                msg.textContent = `🎉 Nueva versión disponible: v${data.version}`;
+                btnDownload.style.display = '';
+                btnDownload.disabled = false;
+                btnDownload.innerHTML = '<i class="fas fa-download"></i> Descargar';
+                btnInstall.style.display = 'none';
+                progress.style.display = 'none';
+                pushLog(null, `[UPDATE] ✅ v${data.version} disponible`, 'success');
+                break;
+
+            case 'up-to-date':
+                pushLog(null, `[UPDATE] Ya tenés la última versión (v${data.version})`, 'info');
+                break;
+
+            case 'downloaded':
+                banner.style.display = '';
+                msg.textContent = `📦 v${data.version} descargada — lista para instalar`;
+                btnDownload.style.display = 'none';
+                btnInstall.style.display = '';
+                progress.style.display = 'none';
+                pushLog(null, `[UPDATE] ✅ v${data.version} descargada, lista para instalar`, 'success');
+                break;
+
+            case 'error':
+                pushLog(null, `[UPDATE] ❌ Error: ${data.error}`, 'error');
+                if (btnDownload) {
+                    btnDownload.disabled = false;
+                    btnDownload.innerHTML = '<i class="fas fa-download"></i> Reintentar';
+                }
+                break;
+        }
+    });
+
+    window.api.onUpdaterProgress?.((data) => {
+        const progress = document.getElementById('updateProgress');
+        if (progress) {
+            progress.style.display = '';
+            progress.textContent = `${data.percent}%`;
+        }
+    });
 }
 
 // Esperar a que cargue el DOM

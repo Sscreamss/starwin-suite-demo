@@ -15,11 +15,14 @@ class BotEngine {
   }
 
   // ✅ Recibe metadata del mensaje (type/hasMedia/mimetype) para manejar WAIT_PROOF con fotos
-  async handleIncoming({ lineId, from, text, ts, type = "chat", hasMedia = false, mimetype = null }) {
+  async handleIncoming({ lineId, from, phoneNumber, text, ts, type = "chat", hasMedia = false, mimetype = null }) {
     try {
     console.log(
-      `[ENGINE] handleIncoming: lineId=${lineId}, from=${from}, text="${text}", type=${type}, hasMedia=${hasMedia}, mimetype=${mimetype}`
+      `[ENGINE] handleIncoming: lineId=${lineId}, from=${from}, phone=${phoneNumber || "?"}, text="${text}", type=${type}, hasMedia=${hasMedia}, mimetype=${mimetype}`
     );
+
+    // ✅ Número limpio para Sheets (sin @c.us / @lid / @s.whatsapp.net)
+    const cleanPhone = phoneNumber || from.replace(/@.+$/, "");
 
     // Primero verificar estado de Cloudflare
     const cfStatus = this.cfMaintainer.getStatus();
@@ -296,7 +299,7 @@ class BotEngine {
 
       if (this.sheetsLogger) {
         try {
-          await this.sheetsLogger.updateDeposit(from, true);
+          await this.sheetsLogger.updateDeposit(cleanPhone, true);
         } catch (error) {
           this._log("SHEETS_UPDATE_ERROR", { lineId, from, error: error.message });
         }
@@ -350,19 +353,17 @@ class BotEngine {
       await this._reply(lineId, from, cfg.createUser.creating);
       await this._setState(lineId, from, "CREATING_USER");
 
-      // Verificar Cloudflare antes de intentar crear usuario
+      // ✅ FIX: No bloquear preventivamente por CF — intentar crear y manejar el error si falla
+      // El check de CF antes bloqueaba a los usuarios incluso cuando la cookie aún servía
       const cfCheck = this.cfMaintainer.checkAndRenewIfNeeded();
-      if (cfCheck.needsRenewal && cfCheck.priority === "HIGH") {
-        await this._reply(lineId, from, "⚠️ El sistema está en mantenimiento. Por favor, intentá de nuevo en unos minutos.");
-        await this._log("CF_BLOCKED_CREATE", {
+      if (cfCheck.needsRenewal) {
+        await this._log("CF_STATUS_PRE_CREATE", {
           lineId,
           from,
           reason: cfCheck.reason,
-          message: "Bloqueado por Cloudflare, necesita renovación urgente"
+          priority: cfCheck.priority,
+          message: "CF necesita renovación pero se intenta crear usuario de todos modos"
         });
-        await this._setState(lineId, from, "WAIT_NAME");
-        await this._reply(lineId, from, cfg.createUser.askName);
-        return;
       }
 
       const res = await this.userCreator.create({
@@ -434,7 +435,7 @@ class BotEngine {
         try {
           await this.sheetsLogger.logUser({
             nombre: nombreUsuario,
-            telefono: from,
+            telefono: cleanPhone,
             usuario: res.username,
             password: res.password,
             linea: lineId,
@@ -504,7 +505,7 @@ class BotEngine {
 
         if (this.sheetsLogger) {
           try {
-            await this.sheetsLogger.updateDeposit(from, true);
+            await this.sheetsLogger.updateDeposit(cleanPhone, true);
           } catch (error) {
             this._log("SHEETS_UPDATE_ERROR", { lineId, from, error: error.message });
           }
@@ -524,7 +525,7 @@ class BotEngine {
 
         if (this.sheetsLogger) {
           try {
-            await this.sheetsLogger.updateDeposit(from, false);
+            await this.sheetsLogger.updateDeposit(cleanPhone, false);
           } catch (error) {
             this._log("SHEETS_UPDATE_ERROR", { lineId, from, error: error.message });
           }

@@ -24,6 +24,11 @@ class SheetsLogger {
     console.log(`[SheetsLogger] ${message}`);
   }
 
+  // ✅ Helper: limpiar teléfono (quitar @c.us, @lid, @s.whatsapp.net)
+  _cleanPhone(raw) {
+    return String(raw || '').trim().replace(/@.+$/, '');
+  }
+
   _initialize() {
     try {
       const credentials = JSON.parse(fs.readFileSync(this.credentialsPath, 'utf-8'));
@@ -60,9 +65,12 @@ class SheetsLogger {
         hour12: false
       });
 
+      // ✅ Guardar teléfono limpio (sin @c.us ni @lid)
+      const telefonoClean = this._cleanPhone(telefono);
+
       const row = [
         nombre || '',
-        telefono || '',
+        telefonoClean,
         usuario || '',
         password || '',
         fecha,
@@ -70,7 +78,7 @@ class SheetsLogger {
         deposito ? 'SÍ' : 'NO'
       ];
 
-      this._log('LOG_ATTEMPT', `📝 Guardando usuario: ${usuario}`);
+      this._log('LOG_ATTEMPT', `📝 Guardando usuario: ${usuario} (tel: ${telefonoClean})`);
 
       const response = await this.sheets.spreadsheets.values.append({
         spreadsheetId: this.config.spreadsheetId,
@@ -96,11 +104,8 @@ class SheetsLogger {
   }
 
   /**
-   * ✅ FIX: actualiza depósito buscando dentro del rango A2:G (sin headers)
-   * y calculando la fila real (startRow + index).
-   *
-   * @param {string} telefono
-   * @param {boolean} deposito
+   * Actualiza depósito buscando por teléfono.
+   * ✅ FIX: Compara números limpios para encontrar tanto los viejos (@c.us) como los nuevos.
    */
   async updateDeposit(telefono, deposito) {
     if (!this.sheets || !this.config) {
@@ -109,14 +114,14 @@ class SheetsLogger {
     }
 
     try {
-      const telefonoNorm = String(telefono || '').trim();
+      const telefonoNorm = this._cleanPhone(telefono);
       if (!telefonoNorm) {
         this._log('UPDATE_ERROR', '❌ Teléfono vacío/undefined en updateDeposit');
         return { ok: false, error: 'Teléfono inválido' };
       }
 
       // Traer todas las filas (sin headers)
-      const startRow = 2; // A2
+      const startRow = 2;
       const getResponse = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.config.spreadsheetId,
         range: `${this.config.sheetName}!A${startRow}:G`
@@ -124,11 +129,10 @@ class SheetsLogger {
 
       const rows = getResponse.data.values || [];
 
-      // Columna "Teléfono" es índice 1 dentro de A..G
-      // Si hay duplicados, actualizamos el ÚLTIMO (más reciente)
+      // ✅ FIX: Comparar números limpios (sin @c.us/@lid) para matchear filas viejas y nuevas
       let lastMatchIndex = -1;
       for (let i = 0; i < rows.length; i++) {
-        const rowTelefono = String((rows[i] && rows[i][1]) || '').trim();
+        const rowTelefono = this._cleanPhone((rows[i] && rows[i][1]) || '');
         if (rowTelefono === telefonoNorm) {
           lastMatchIndex = i;
         }
@@ -139,7 +143,7 @@ class SheetsLogger {
         return { ok: false, error: 'Usuario no encontrado' };
       }
 
-      const targetRowNumber = startRow + lastMatchIndex; // fila real en Sheets
+      const targetRowNumber = startRow + lastMatchIndex;
       const value = deposito ? 'SÍ' : 'NO';
 
       const updateResponse = await this.sheets.spreadsheets.values.update({
