@@ -199,25 +199,44 @@ class SheetsLogger {
     }
   }
 
+  // ✅ Helper: parsear fecha DD/MM/YYYY desde el sheet de forma robusta
+  _parseDate(fechaStr) {
+    if (!fechaStr) return null;
+    const datePart = fechaStr.split(',')[0].trim(); // "24/02/2026" de "24/02/2026, 00:01:54"
+    const parts = datePart.split('/');
+    if (parts.length !== 3) return null;
+    const [day, month, year] = parts.map(Number);
+    if (!day || !month || !year) return null;
+    return new Date(year, month - 1, day); // Local timezone, no UTC issues
+  }
+
+  // ✅ Helper: obtener fecha como DD/MM/YYYY con ceros (para matchear con el sheet)
+  _formatDateKey(date) {
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+
   async getStats() {
     const result = await this.getAllUsers();
     if (!result.ok) return { ok: false, stats: null };
 
     const users = result.users;
     const now = new Date();
-    const today = now.toLocaleDateString('es-AR');
+    const todayKey = this._formatDateKey(now);
 
     const usersToday = users.filter(u => {
       if (!u.fecha) return false;
-      const userDate = new Date(u.fecha.split(' ')[0].split('/').reverse().join('-'));
-      return userDate.toLocaleDateString('es-AR') === today;
+      const datePart = u.fecha.split(',')[0].trim();
+      return datePart === todayKey;
     }).length;
 
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const usersThisWeek = users.filter(u => {
-      if (!u.fecha) return false;
-      const userDate = new Date(u.fecha.split(' ')[0].split('/').reverse().join('-'));
-      return userDate >= weekAgo;
+      const parsed = this._parseDate(u.fecha);
+      if (!parsed) return false;
+      return parsed >= weekAgo;
     }).length;
 
     const usersDeposited = users.filter(u => u.deposito).length;
@@ -250,13 +269,13 @@ class SheetsLogger {
 
     for (let i = 0; i < days; i++) {
       const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateStr = date.toLocaleDateString('es-AR');
-      dayMap[dateStr] = 0;
+      const key = this._formatDateKey(date);
+      dayMap[key] = 0;
     }
 
     users.forEach(u => {
       if (!u.fecha) return;
-      const datePart = u.fecha.split(' ')[0];
+      const datePart = u.fecha.split(',')[0].trim();
       if (dayMap[datePart] !== undefined) dayMap[datePart]++;
     });
 

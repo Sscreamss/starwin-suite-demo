@@ -865,13 +865,18 @@ app.whenReady().then(async () => {
       const result = await sheetsLogger.getAllUsers();
       if (!result.ok) return [];
       
-      // Ordenar por fecha (más recientes primero) y limitar
+      // ✅ FIX: Parsear fechas DD/MM/YYYY correctamente (split por coma, no espacio)
+      function parseSheetDate(fecha) {
+        if (!fecha) return new Date(0);
+        const datePart = fecha.split(',')[0].trim(); // "24/02/2026"
+        const parts = datePart.split('/');
+        if (parts.length !== 3) return new Date(0);
+        const [day, month, year] = parts.map(Number);
+        return new Date(year, month - 1, day);
+      }
+
       const users = result.users
-        .sort((a, b) => {
-          const dateA = new Date(a.fecha.split(' ')[0].split('/').reverse().join('-'));
-          const dateB = new Date(b.fecha.split(' ')[0].split('/').reverse().join('-'));
-          return dateB - dateA;
-        })
+        .sort((a, b) => parseSheetDate(b.fecha) - parseSheetDate(a.fecha))
         .slice(0, limit || 10);
       
       return users;
