@@ -625,6 +625,66 @@ app.whenReady().then(async () => {
   const userDataPath = app.getPath("userData");
   console.log(`[MAIN] userData path: ${userDataPath}`);
 
+  // ═══════════════════════════════════════
+  // ✅ LIMPIEZA POST-UPDATE: Si la versión cambió, limpiar cache de sesiones
+  // ═══════════════════════════════════════
+  const currentVersion = app.getVersion();
+  const versionFile = path.join(userDataPath, '.last-version');
+  let lastVersion = null;
+
+  try {
+    if (fs.existsSync(versionFile)) {
+      lastVersion = fs.readFileSync(versionFile, 'utf-8').trim();
+    }
+  } catch {}
+
+  if (lastVersion && lastVersion !== currentVersion) {
+    console.log(`[MAIN] ⬆️ Actualización detectada: v${lastVersion} → v${currentVersion}`);
+    
+    // Limpiar cache de wwebjs (no borra auth, solo cache del browser)
+    const sessionsDir = path.join(userDataPath, 'sessions');
+    if (fs.existsSync(sessionsDir)) {
+      const entries = fs.readdirSync(sessionsDir);
+      for (const entry of entries) {
+        const entryPath = path.join(sessionsDir, entry);
+        
+        // Solo limpiar carpetas de sesión de líneas (session-lineXXX)
+        if (!fs.statSync(entryPath).isDirectory()) continue;
+        
+        // Buscar carpetas de cache dentro de cada sesión
+        const cacheDirs = ['Default/Cache', 'Default/Code Cache', 'Default/GPUCache', 'Default/Service Worker'];
+        for (const cacheSubDir of cacheDirs) {
+          const cachePath = path.join(entryPath, cacheSubDir);
+          if (fs.existsSync(cachePath)) {
+            try {
+              fs.rmSync(cachePath, { recursive: true, force: true });
+              console.log(`[MAIN] 🧹 Cache limpiado: ${cachePath}`);
+            } catch (e) {
+              console.log(`[MAIN] ⚠️ No se pudo limpiar ${cachePath}: ${e.message}`);
+            }
+          }
+        }
+      }
+      console.log(`[MAIN] ✅ Limpieza post-update completada`);
+    }
+
+    // Limpiar sesiones de bot (estados incompletos)
+    const sessionsFile = path.join(sessionsDir, 'sessions.json');
+    if (fs.existsSync(sessionsFile)) {
+      try {
+        fs.writeFileSync(sessionsFile, JSON.stringify({}, null, 2), 'utf-8');
+        console.log('[MAIN] 🧹 Sesiones de bot reseteadas post-update');
+      } catch (e) {
+        console.log(`[MAIN] ⚠️ No se pudo resetear sessions.json: ${e.message}`);
+      }
+    }
+  }
+
+  // Guardar versión actual
+  try {
+    fs.writeFileSync(versionFile, currentVersion, 'utf-8');
+  } catch {}
+
   const configStore = new ConfigStore({ basePath: userDataPath });
   
   // Copiar credenciales de Google si no existen
