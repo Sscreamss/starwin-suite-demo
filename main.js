@@ -436,17 +436,40 @@ async function autoRenewCfIfNeeded(configStore) {
   const check = cfMaintainer.checkAndRenewIfNeeded();
   
   if (!check.needsRenewal) {
+    // ✅ NUEVO: El timer dice que la cookie no expiró, pero verificar que la sesión
+    // de Puppeteer realmente funcione con un request real
     sendLog({
-      type: "CF_AUTO_RENEW_CHECK",
-      message: `✅ CF válido (${check.hours}h). Próxima verificación en ~${check.nextCheck}h`
+      type: "CF_AUTO_RENEW_VERIFYING",
+      message: `🔍 Timer dice CF válido (${check.hours}h), verificando sesión real...`
     });
-    return { ok: true, reason: "NOT_NEEDED" };
+
+    const sessionCheck = await cfMaintainer.verifySessionIsAlive(puppeteerPage);
+
+    if (sessionCheck.alive) {
+      sendLog({
+        type: "CF_AUTO_RENEW_CHECK",
+        message: `✅ CF válido y sesión funcional (${sessionCheck.reason}). Próxima en ~${check.nextCheck}h`
+      });
+      return { ok: true, reason: "NOT_NEEDED" };
+    } else {
+      // Sesión muerta aunque el timer diga que la cookie es válida → forzar renovación
+      sendLog({
+        type: "CF_SESSION_DEAD",
+        message: `⚠️ Timer dice válido pero sesión muerta (${sessionCheck.reason}). Forzando renovación...`
+      });
+      // Continuar abajo para renovar
+    }
+  } else {
+    sendLog({
+      type: "CF_AUTO_RENEW_NEEDED",
+      message: `🔄 CF necesita renovación - Razón: ${check.reason} (${check.priority})`
+    });
   }
 
-  // Si necesita renovación (cualquier prioridad), ejecutar automáticamente
+  // Si llegamos acá, necesita renovación (sea por timer o por sesión muerta)
   sendLog({
     type: "CF_AUTO_RENEW_STARTING",
-    message: `🔄 Renovación automática iniciada - Razón: ${check.reason} (${check.priority})`
+    message: "🔄 Renovación automática iniciada..."
   });
 
   autoRenewInProgress = true;
@@ -466,7 +489,6 @@ async function autoRenewCfIfNeeded(configStore) {
         message: `✅ Renovación automática exitosa - ${result.cookie?.totalCookies || 0} cookies capturadas`
       });
       
-      // Notificar al frontend para que actualice el indicador de estado CF
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send("cf:auto-renewed", { ok: true });
         mainWindow.webContents.send("cf:auto-renew-status", { status: "idle" });
@@ -825,14 +847,23 @@ app.whenReady().then(async () => {
     const cfg = configStore.get();
     const starwin = cfg.starwin || {};
     const check = cfMaintainer.checkAndRenewIfNeeded();
+
+    // ✅ Si el timer dice válido, verificar sesión real
+    let sessionAlive = false;
+    if (!check.needsRenewal) {
+      const sessionCheck = await cfMaintainer.verifySessionIsAlive(puppeteerPage);
+      sessionAlive = sessionCheck.alive;
+    }
+
+    const reallyValid = !check.needsRenewal && sessionAlive;
     
     return {
       hasCookie: !!starwin.cfClearance,
       lastUpdated: starwin.cfClearanceUpdated || null,
       expires: starwin.cfClearanceExpires || null,
-      needsRenewal: check.needsRenewal,
-      reason: check.reason,
-      status: check.needsRenewal ? "EXPIRED" : "VALID"
+      needsRenewal: !reallyValid,
+      reason: reallyValid ? check.reason : (sessionAlive ? check.reason : "SESSION_DEAD"),
+      status: reallyValid ? "VALID" : "EXPIRED"
     };
   });
 
