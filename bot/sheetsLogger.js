@@ -275,6 +275,55 @@ class SheetsLogger {
     return { ok: true, stats };
   }
 
+  /**
+   * ✅ NUEVO: Buscar usuario existente por teléfono.
+   * Devuelve la última fila que matchee el teléfono (por si creó varias cuentas).
+   */
+  async lookupUserByPhone(phone) {
+    if (!this.sheets || !this.config) {
+      return { found: false, reason: 'SHEETS_NOT_INIT' };
+    }
+
+    const phoneNorm = this._cleanPhone(phone);
+    if (!phoneNorm) {
+      return { found: false, reason: 'EMPTY_PHONE' };
+    }
+
+    try {
+      const result = await this.getAllUsers();
+      if (!result.ok) return { found: false, reason: 'FETCH_ERROR' };
+
+      // Buscar la última fila que matchee (por si tiene varias cuentas, tomar la más reciente)
+      let lastMatch = null;
+      for (const user of result.users) {
+        const userPhone = this._cleanPhone(user.telefono);
+        if (userPhone === phoneNorm) {
+          lastMatch = user;
+        }
+      }
+
+      if (lastMatch) {
+        this._log('LOOKUP_FOUND', `✅ Usuario encontrado: ${lastMatch.nombre} (${lastMatch.usuario})`);
+        return {
+          found: true,
+          user: {
+            nombre: lastMatch.nombre,
+            telefono: lastMatch.telefono,
+            usuario: lastMatch.usuario,
+            password: lastMatch.password,
+            linea: lastMatch.linea,
+            deposito: lastMatch.deposito
+          }
+        };
+      }
+
+      return { found: false, reason: 'NOT_FOUND' };
+    } catch (error) {
+      this._log('LOOKUP_ERROR', `❌ Error buscando usuario: ${error.message}`);
+      return { found: false, reason: 'ERROR', error: error.message };
+    }
+  }
+
   async getUsersByDay(days = 30) {
     const result = await this.getAllUsers();
     if (!result.ok) return { ok: false, data: [] };

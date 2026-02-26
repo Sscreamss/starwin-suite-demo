@@ -392,6 +392,33 @@
             <textarea id="welcomeBackMessage" maxlength="800" data-search="bienvenida vuelta completado welcome back"></textarea>
             <div class="char-count" id="welcomeBackCount">0 / 800</div>
           </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje para usuario que vuelve (detectado en Sheet)
+              <span class="hint">Se envía cuando alguien que ya tiene cuenta en el Sheet escribe por primera vez en una sesión nueva. Usá <strong>{nombre}</strong> para insertar el nombre del usuario.</span>
+            </label>
+            <textarea id="returningUserMessage" maxlength="800" data-search="usuario vuelve returning nombre sheet detectado"></textarea>
+            <div class="char-count" id="returningUserCount">0 / 800</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje "Olvidé mi usuario" (encabezado)
+              <span class="hint">Se envía antes de los datos cuando un usuario escribe OLVIDE MI USUARIO. Luego se envían usuario, contraseña y URL como mensajes separados.</span>
+            </label>
+            <textarea id="forgotUserMessage" maxlength="500" data-search="olvide olvidé usuario recuperar datos credenciales"></textarea>
+            <div class="char-count" id="forgotUserCount">0 / 500</div>
+          </div>
+
+          <div class="form-group">
+            <label>
+              Mensaje cuando no se encuentra la cuenta
+              <span class="hint">Se envía cuando alguien escribe OLVIDE MI USUARIO pero no tiene cuenta en el Sheet.</span>
+            </label>
+            <textarea id="userNotFoundMessage" maxlength="500" data-search="no encontre cuenta no encontrado no existe"></textarea>
+            <div class="char-count" id="userNotFoundCount">0 / 500</div>
+          </div>
         </div>
       </section>
 
@@ -557,8 +584,7 @@
 
     </main>
   </div>
-  
-  <script src="titlebar.js"></script>
+
   <script src="config.js"></script>
 </body>
 </html>

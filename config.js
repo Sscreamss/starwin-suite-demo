@@ -18,7 +18,10 @@ const DEFAULTS = {
   welcomeBackMessage: "¡Hola de nuevo! 👋 Ya tenés tu cuenta creada.\n\nSi querés hacer un depósito escribí *DEPOSITO*\nSi necesitás ayuda escribí *SOPORTE*\nSi necesitás info escribí *INFO*",
   creatingUserWaitMessage: "⏳ Estamos creando tu cuenta, esperá un momento por favor...",
   proofReminderMessage: "⏰ ¡Recordatorio! ¿Ya pudiste hacer la transferencia?\n\nAcordate de mandar la *foto del comprobante* por acá.\nSi necesitás los datos de nuevo escribí *DEPOSITO*",
-  proofReminderMinutes: 15
+  proofReminderMinutes: 15,
+  returningUserMessage: "¡Hola {nombre}! 👋 Qué bueno verte de nuevo.\n\n¿En qué puedo ayudarte?\n\n📌 Escribí *DEPOSITO* para cargar saldo\n📌 Escribí *OLVIDE MI USUARIO* si no recordás tus datos\n📌 Escribí *SOPORTE* si necesitás ayuda\n📌 Escribí *INFO* para más información",
+  forgotUserMessage: "📋 Acá están tus datos:\n\n👤 Tu usuario es:",
+  userNotFoundMessage: "🔍 No encontré una cuenta asociada a tu número.\n¿Querés que te cree una? Escribí tu nombre para empezar."
 };
 
 function $(id) { return document.getElementById(id); }
@@ -65,6 +68,9 @@ function populateForm() {
   $("creatingUserWaitMessage").value = cu.creatingUserWaitMessage || DEFAULTS.creatingUserWaitMessage;
   $("proofReminderMessage").value = cu.proofReminderMessage || DEFAULTS.proofReminderMessage;
   $("proofReminderMinutes").value = cu.proofReminderMinutes ?? DEFAULTS.proofReminderMinutes;
+  $("returningUserMessage").value = cu.returningUserMessage || DEFAULTS.returningUserMessage;
+  $("forgotUserMessage").value = cu.forgotUserMessage || DEFAULTS.forgotUserMessage;
+  $("userNotFoundMessage").value = cu.userNotFoundMessage || DEFAULTS.userNotFoundMessage;
 
   updateCharCounts();
   updatePreview();
@@ -92,7 +98,10 @@ function updateCharCounts() {
     // ✅ NUEVOS
     { id: "welcomeBackMessage", countId: "welcomeBackCount", max: 800 },
     { id: "creatingUserWaitMessage", countId: "creatingUserWaitCount", max: 300 },
-    { id: "proofReminderMessage", countId: "proofReminderCount", max: 800 }
+    { id: "proofReminderMessage", countId: "proofReminderCount", max: 800 },
+    { id: "returningUserMessage", countId: "returningUserCount", max: 800 },
+    { id: "forgotUserMessage", countId: "forgotUserCount", max: 500 },
+    { id: "userNotFoundMessage", countId: "userNotFoundCount", max: 500 }
   ];
   fields.forEach(function(field) {
     var input = $(field.id);
@@ -152,7 +161,10 @@ async function saveConfig() {
         welcomeBackMessage: $("welcomeBackMessage").value.trim(),
         creatingUserWaitMessage: $("creatingUserWaitMessage").value.trim(),
         proofReminderMessage: $("proofReminderMessage").value.trim(),
-        proofReminderMinutes: parseInt($("proofReminderMinutes").value) || 15
+        proofReminderMinutes: parseInt($("proofReminderMinutes").value) || 15,
+        returningUserMessage: $("returningUserMessage").value.trim(),
+        forgotUserMessage: $("forgotUserMessage").value.trim(),
+        userNotFoundMessage: $("userNotFoundMessage").value.trim()
       }
     };
     await window.api.configSet(updates);
