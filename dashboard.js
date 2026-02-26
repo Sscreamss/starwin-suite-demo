@@ -51,6 +51,8 @@ function renderStats(stats) {
     document.getElementById('statWeek').textContent = stats.thisWeek || 0;
     document.getElementById('statDeposited').textContent = stats.deposited || 0;
     document.getElementById('depositRate').textContent = stats.depositRate + '%';
+    document.getElementById('statDepositedToday').textContent = stats.depositedToday || 0;
+    document.getElementById('statDepositedWeek').textContent = stats.depositedThisWeek || 0;
 }
 
 function renderUsersChart(data) {

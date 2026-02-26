@@ -225,6 +225,7 @@ class SheetsLogger {
     const users = result.users;
     const now = new Date();
     const todayKey = this._formatDateKey(now);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const usersToday = users.filter(u => {
       if (!u.fecha) return false;
@@ -232,7 +233,6 @@ class SheetsLogger {
       return datePart === todayKey;
     }).length;
 
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const usersThisWeek = users.filter(u => {
       const parsed = this._parseDate(u.fecha);
       if (!parsed) return false;
@@ -240,6 +240,20 @@ class SheetsLogger {
     }).length;
 
     const usersDeposited = users.filter(u => u.deposito).length;
+
+    // ✅ NUEVO: Depósitos de hoy y esta semana
+    const depositedToday = users.filter(u => {
+      if (!u.deposito || !u.fecha) return false;
+      const datePart = u.fecha.split(',')[0].trim();
+      return datePart === todayKey;
+    }).length;
+
+    const depositedThisWeek = users.filter(u => {
+      if (!u.deposito) return false;
+      const parsed = this._parseDate(u.fecha);
+      if (!parsed) return false;
+      return parsed >= weekAgo;
+    }).length;
 
     const usersByLine = users.reduce((acc, u) => {
       acc[u.linea] = (acc[u.linea] || 0) + 1;
@@ -251,11 +265,13 @@ class SheetsLogger {
       today: usersToday,
       thisWeek: usersThisWeek,
       deposited: usersDeposited,
+      depositedToday,
+      depositedThisWeek,
       depositRate: users.length > 0 ? ((usersDeposited / users.length) * 100).toFixed(1) : 0,
       byLine: usersByLine
     };
 
-    this._log('STATS', `📊 Stats: Total=${stats.total}, Hoy=${stats.today}, Semana=${stats.thisWeek}`);
+    this._log('STATS', `📊 Stats: Total=${stats.total}, Hoy=${stats.today}, Semana=${stats.thisWeek}, DepHoy=${depositedToday}, DepSemana=${depositedThisWeek}`);
     return { ok: true, stats };
   }
 

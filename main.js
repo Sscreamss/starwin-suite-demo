@@ -957,6 +957,8 @@ app.whenReady().then(async () => {
           today: 0,
           thisWeek: 0,
           deposited: 0,
+          depositedToday: 0,
+          depositedThisWeek: 0,
           depositRate: 0,
           byLine: {}
         };
@@ -968,6 +970,8 @@ app.whenReady().then(async () => {
         today: 0,
         thisWeek: 0,
         deposited: 0,
+        depositedToday: 0,
+        depositedThisWeek: 0,
         depositRate: 0,
         byLine: {}
       };
@@ -978,6 +982,8 @@ app.whenReady().then(async () => {
         today: 0,
         thisWeek: 0,
         deposited: 0,
+        depositedToday: 0,
+        depositedThisWeek: 0,
         depositRate: 0,
         byLine: {}
       };
