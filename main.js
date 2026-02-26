@@ -1030,6 +1030,18 @@ app.whenReady().then(async () => {
     }
   });
 
+  // ✅ NUEVO: Obtener TODOS los usuarios para el dashboard avanzado
+  ipcMain.handle('dashboard:get-all-users', async () => {
+    try {
+      if (!sheetsLogger) return [];
+      const result = await sheetsLogger.getAllUsers();
+      return result.ok ? result.users : [];
+    } catch (error) {
+      console.error('[MAIN] Error getting all users:', error);
+      return [];
+    }
+  });
+
   // ✅ NUEVO: Seleccionar imagen de depósito
   ipcMain.handle("config:select-deposit-image", async () => {
     const result = await dialog.showOpenDialog(mainWindow, {

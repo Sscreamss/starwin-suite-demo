@@ -45,6 +45,7 @@ contextBridge.exposeInMainWorld("api", {
   dashboardGetStats: () => ipcRenderer.invoke("dashboard:get-stats"),
   dashboardGetUsersByDay: (days) => ipcRenderer.invoke("dashboard:get-users-by-day", days),
   dashboardGetRecentUsers: (limit) => ipcRenderer.invoke("dashboard:get-recent-users", limit),
+  dashboardGetAllUsers: () => ipcRenderer.invoke("dashboard:get-all-users"),
 
   // Events
   onLineQr: (callback) => {
