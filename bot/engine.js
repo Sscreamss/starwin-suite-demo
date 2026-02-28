@@ -77,21 +77,7 @@ class BotEngine {
         "⏰ ¡Recordatorio! ¿Ya pudiste hacer la transferencia?\n\n" +
         "Acordate de mandar la *foto del comprobante* por acá.\n" +
         "Si necesitás los datos de nuevo escribí *DEPOSITO*",
-      proofReminderMinutes: 15,
-      // ✅ NUEVO: Mensajes para usuarios que ya existen en el sheet
-      returningUserMessage:
-        "¡Hola {nombre}! 👋 Qué bueno verte de nuevo.\n\n" +
-        "¿En qué puedo ayudarte?\n\n" +
-        "📌 Escribí *DEPOSITO* para cargar saldo\n" +
-        "📌 Escribí *OLVIDE MI USUARIO* si no recordás tus datos\n" +
-        "📌 Escribí *SOPORTE* si necesitás ayuda\n" +
-        "📌 Escribí *INFO* para más información",
-      forgotUserMessage:
-        "📋 Acá están tus datos:\n\n" +
-        "👤 Tu usuario es:",
-      userNotFoundMessage:
-        "🔍 No encontré una cuenta asociada a tu número.\n" +
-        "¿Querés que te cree una? Escribí tu nombre para empezar."
+      proofReminderMinutes: 15
     };
 
     // ✅ Textos editables desde config
@@ -114,11 +100,6 @@ class BotEngine {
     const creatingUserWaitMsg = (cu.creatingUserWaitMessage || DEFAULTS.creatingUserWaitMessage).trim();
     const proofReminderMsg = (cu.proofReminderMessage || DEFAULTS.proofReminderMessage).trim();
     const proofReminderMinutes = cu.proofReminderMinutes ?? DEFAULTS.proofReminderMinutes;
-
-    // ✅ NUEVO: Textos para usuario que vuelve / olvidó datos
-    const returningUserMsg = (cu.returningUserMessage || DEFAULTS.returningUserMessage).trim();
-    const forgotUserMsg = (cu.forgotUserMessage || DEFAULTS.forgotUserMessage).trim();
-    const userNotFoundMsg = (cu.userNotFoundMessage || DEFAULTS.userNotFoundMessage).trim();
 
     // Ruta de imagen de depósito
     const depositImagePath = cu.depositImagePath || "";
@@ -254,8 +235,7 @@ class BotEngine {
       isIntent(normalized, "INFO") ||
       isIntent(normalized, "SOPORTE") ||
       isIntent(normalized, "CREAR_USUARIO") ||
-      isIntent(normalized, "DEPOSITO") ||
-      isIntent(normalized, "OLVIDE_USUARIO");
+      isIntent(normalized, "DEPOSITO");
 
     if (!isKnownCommand && !isWaitingForInput && (cfg.safety?.rateLimitSeconds || 0) > 0) {
       const now = Date.now();
@@ -607,29 +587,6 @@ class BotEngine {
       return;
     }
 
-    // ✅ OLVIDE MI USUARIO → buscar en Sheets y enviar datos
-    if (isIntent(normalized, "OLVIDE_USUARIO")) {
-      if (this.sheetsLogger) {
-        const lookup = await this.sheetsLogger.lookupUserByPhone(cleanPhone);
-        if (lookup.found) {
-          await this._reply(lineId, from, forgotUserMsg);
-          await this._reply(lineId, from, lookup.user.usuario);
-          await this._reply(lineId, from, createdPassLabel);
-          await this._reply(lineId, from, lookup.user.password);
-          await this._reply(lineId, from, createdUrlLabel);
-          await this._reply(lineId, from, cfg.url || "https://admin.starwin.plus");
-          await this._log("FORGOT_USER_SENT", { lineId, from, usuario: lookup.user.usuario });
-        } else {
-          await this._reply(lineId, from, userNotFoundMsg);
-          await this._setState(lineId, from, "WAIT_NAME");
-          await this._log("FORGOT_USER_NOT_FOUND", { lineId, from });
-        }
-      } else {
-        await this._reply(lineId, from, "⚠️ El sistema de datos no está disponible. Intentá más tarde.");
-      }
-      return;
-    }
-
     // ═══════════════════════════════════════
     // ✅ CATCH-ALL: mensajes no reconocidos
     // ═══════════════════════════════════════
@@ -646,47 +603,7 @@ class BotEngine {
       return;
     }
 
-    // ✅ NUEVO: Si no tiene sesión completada, verificar si ya existe en Sheets
-    // Esto cubre el caso de: app se reinició, sessions.json se limpió, pero el usuario ya tenía cuenta
-    if (this.sheetsLogger) {
-      try {
-        const lookup = await this.sheetsLogger.lookupUserByPhone(cleanPhone);
-        if (lookup.found) {
-          // Usuario ya existe en Sheets → saludar por nombre con menú
-          const personalGreeting = returningUserMsg.replace(/\{nombre\}/g, lookup.user.nombre || "");
-
-          // Marcar sesión como completada para que no intente crear usuario de nuevo
-          this.sessionStore.upsert(lineId, from, (s) => {
-            s.completed = true;
-            s.state = "COMPLETED";
-            s.data = s.data || {};
-            s.data.name = lookup.user.nombre;
-            s.data.username = lookup.user.usuario;
-            s.data.restoredFromSheets = true;
-            return s;
-          });
-
-          await this._reply(lineId, from, personalGreeting);
-          await this._log("RETURNING_USER_FROM_SHEETS", {
-            lineId,
-            from,
-            nombre: lookup.user.nombre,
-            usuario: lookup.user.usuario,
-            message: "Usuario encontrado en Sheets, sesión restaurada"
-          });
-          return;
-        }
-      } catch (lookupErr) {
-        this._log("LOOKUP_ERROR", {
-          lineId,
-          from,
-          error: lookupErr.message,
-          message: "Error buscando usuario en Sheets, continuando con flujo normal"
-        });
-      }
-    }
-
-    // Si no completó y no está en Sheets → iniciar flujo de creación automáticamente
+    // Si no completó → iniciar flujo de creación automáticamente
     await this._setState(lineId, from, "WAIT_NAME");
     await this._reply(lineId, from, cfg.createUser.askName);
     await this._log("AUTO_CREATE_START", {
@@ -974,10 +891,6 @@ const INTENTS = {
   DEPOSITO: {
     exact: ["DEPOSITO", "DEPÓSITO", "CARGA", "CARGAR"],
     contains: ["QUIERO DEPOSITAR", "QUIERO HACER UN DEPOSITO", "HACER DEPOSITO", "HACER CARGA", "CARGAR SALDO", "MANDAR CARGA"]
-  },
-  OLVIDE_USUARIO: {
-    exact: ["OLVIDE MI USUARIO", "OLVIDE", "MI USUARIO", "MIS DATOS", "NO RECUERDO MI USUARIO", "OLVIDÉ MI USUARIO", "OLVIDÉ"],
-    contains: ["OLVIDE MI", "OLVIDE EL USUARIO", "NO ME ACUERDO", "CUAL ERA MI USUARIO", "CUAL ES MI USUARIO", "NO SE MI USUARIO", "PERDI MI USUARIO", "RECUPERAR USUARIO", "RECUPERAR MI CUENTA", "MIS CREDENCIALES"]
   },
   YES: {
     exact: ["SI", "SÍ", "S", "DALE", "OK", "OKAY", "VAMOS", "DE UNA"],
