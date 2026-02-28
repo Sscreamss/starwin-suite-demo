@@ -196,15 +196,15 @@ class BotEngine {
       }
 
       if (isIntent(normalizedInProof, "INFO")) {
-        this._cancelProofReminder(lineId, from);
         await this._reply(lineId, from, cfg.info.text);
+        await this._reply(lineId, from, askProofMsg);
         await this._log("PROOF_CMD_INFO", { lineId, from });
         return;
       }
 
       if (isIntent(normalizedInProof, "SOPORTE")) {
-        this._cancelProofReminder(lineId, from);
         await this._reply(lineId, from, cfg.support.text);
+        await this._reply(lineId, from, askProofMsg);
         await this._log("PROOF_CMD_SOPORTE", { lineId, from });
         return;
       }
@@ -308,6 +308,35 @@ class BotEngine {
       return;
     }
 
+    // ✅ INFO (global — funciona desde cualquier estado, no pierde el flujo)
+    if (isIntent(normalized, "INFO")) {
+      await this._reply(lineId, from, cfg.info.text);
+      await this._log("CMD_INFO_GLOBAL", { lineId, from, state: sessionAfterCheck.state });
+      // Si está en un flujo activo, repetir la pregunta correspondiente
+      if (sessionAfterCheck.state === "WAIT_NAME") {
+        await this._reply(lineId, from, cfg.createUser.askName);
+      } else if (sessionAfterCheck.state === "WAIT_DEPOSIT") {
+        await this._reply(lineId, from, cfg.createUser.askDeposit);
+      } else if (sessionAfterCheck.state === "WAIT_PROOF") {
+        await this._reply(lineId, from, askProofMsg);
+      }
+      return;
+    }
+
+    // ✅ SOPORTE (global — funciona desde cualquier estado, no pierde el flujo)
+    if (isIntent(normalized, "SOPORTE")) {
+      await this._reply(lineId, from, cfg.support.text);
+      await this._log("CMD_SOPORTE_GLOBAL", { lineId, from, state: sessionAfterCheck.state });
+      if (sessionAfterCheck.state === "WAIT_NAME") {
+        await this._reply(lineId, from, cfg.createUser.askName);
+      } else if (sessionAfterCheck.state === "WAIT_DEPOSIT") {
+        await this._reply(lineId, from, cfg.createUser.askDeposit);
+      } else if (sessionAfterCheck.state === "WAIT_PROOF") {
+        await this._reply(lineId, from, askProofMsg);
+      }
+      return;
+    }
+
     // ═══════════════════════════════════════
     // ✅ WAIT_NAME: pedir nombre
     // ═══════════════════════════════════════
@@ -316,25 +345,6 @@ class BotEngine {
         s.meta.lastActionAt = 0;
         return s;
       });
-
-      // ✅ FIX: Verificar si es un comando ANTES de tratar como nombre
-      if (isIntent(normalized, "INFO")) {
-        await this._reply(lineId, from, cfg.info.text);
-        await this._reply(lineId, from, cfg.createUser.askName);
-        await this._log("WAIT_NAME_CMD_INFO", { lineId, from });
-        return;
-      }
-      if (isIntent(normalized, "SOPORTE")) {
-        await this._reply(lineId, from, cfg.support.text);
-        await this._reply(lineId, from, cfg.createUser.askName);
-        await this._log("WAIT_NAME_CMD_SOPORTE", { lineId, from });
-        return;
-      }
-      if (isIntent(normalized, "CREAR_USUARIO")) {
-        await this._reply(lineId, from, cfg.createUser.askName);
-        await this._log("WAIT_NAME_CMD_CREAR", { lineId, from });
-        return;
-      }
 
       if (!isValidName(msg)) {
         await this._bumpAttempts(lineId, from);
@@ -551,29 +561,6 @@ class BotEngine {
     // ═══════════════════════════════════════
     // COMANDOS DESDE ESTADO LIBRE (no están en un flujo activo)
     // ═══════════════════════════════════════
-
-    // ✅ INFO → responder info y arrancar creación
-    if (isIntent(normalized, "INFO")) {
-      await this._reply(lineId, from, cfg.info.text);
-      // Solo arrancar creación si no tiene cuenta aún
-      if (!sessionAfterCheck.completed) {
-        await this._setState(lineId, from, "WAIT_NAME");
-        await this._reply(lineId, from, cfg.createUser.askName);
-      }
-      await this._log("FLOW_INFO", { lineId, from });
-      return;
-    }
-
-    // ✅ SOPORTE → responder soporte y arrancar creación
-    if (isIntent(normalized, "SOPORTE")) {
-      await this._reply(lineId, from, cfg.support.text);
-      if (!sessionAfterCheck.completed) {
-        await this._setState(lineId, from, "WAIT_NAME");
-        await this._reply(lineId, from, cfg.createUser.askName);
-      }
-      await this._log("FLOW_SUPPORT", { lineId, from });
-      return;
-    }
 
     // ✅ CREAR USUARIO
     if (isIntent(normalized, "CREAR_USUARIO")) {
@@ -877,12 +864,196 @@ const INTENTS = {
     contains: ["CANCELA", "CANCELAME", "SALIR DEL BOT", "SALIR DE ACA", "NO QUIERO SEGUIR"]
   },
   INFO: {
-    exact: ["INFO", "INFORMACION", "INFORMACIÓN", "DATOS"],
-    contains: ["QUIERO INFO", "NECESITO INFO", "MAS INFO", "MÁS INFO", "QUIERO INFORMACION", "QUIERO INFORMACIÓN"]
+    exact: [
+      "INFO", "INFORMACION", "INFORMACIÓN", "DATOS", "DETALLES",
+      "CONSULTA", "PREGUNTA", "DUDAS", "DUDA"
+    ],
+    contains: [
+      // Pedir info general
+      "QUIERO INFO", "NECESITO INFO", "MAS INFO", "MÁS INFO",
+      "QUIERO INFORMACION", "QUIERO INFORMACIÓN",
+      "DAME INFO", "PASAME INFO", "PASÁME INFO",
+      "MANDAME INFO", "MANDÁME INFO",
+      "TENES INFO", "TENÉS INFO",
+      "ME PASAS INFO", "ME PASÁS INFO",
+      "ME DAS INFO", "ME DAS INFORMACIÓN",
+      // Cómo funciona
+      "COMO FUNCIONA", "CÓMO FUNCIONA",
+      "COMO ES", "CÓMO ES", "COMO SERIA", "CÓMO SERÍA",
+      "COMO ES LA ONDA", "CÓMO ES LA ONDA",
+      "COMO ES EL TEMA", "CÓMO ES EL TEMA",
+      "COMO VA", "CÓMO VA", "COMO ONDA",
+      "DE QUE VA", "DE QUÉ VA",
+      "EXPLICAME", "EXPLÍCAME", "EXPLICAR",
+      "CONTAME", "CONTÁME", "DECIME", "DECÍME",
+      "QUIERO SABER", "ME INTERESA", "ESTOY INTERESADO",
+      "QUE ONDA", "QUÉ ONDA",
+      "DE QUE SE TRATA", "DE QUÉ SE TRATA",
+      "QUE ES ESTO", "QUÉ ES ESTO",
+      "QUE OFRECEN", "QUÉ OFRECEN",
+      "QUE HAY", "QUÉ HAY",
+      // Precios / montos / cargas
+      "CUANTO SALE", "CUÁNTO SALE",
+      "CUANTO CUESTA", "CUÁNTO CUESTA",
+      "CUANTO ES", "CUÁNTO ES",
+      "CARGA MINIMA", "CARGA MÍNIMA",
+      "MINIMO", "MÍNIMO", "MINIMA", "MÍNIMA",
+      "DEPOSITO MINIMO", "DEPÓSITO MÍNIMO",
+      "MONTO MINIMO", "MONTO MÍNIMO",
+      "CUANTO HAY QUE PONER", "CUÁNTO HAY QUE PONER",
+      "CUANTO TENGO QUE PONER", "CUÁNTO TENGO QUE PONER",
+      "CUAL ES EL MINIMO", "CUÁL ES EL MÍNIMO",
+      "CUANTO ES LO MINIMO", "CUÁNTO ES LO MÍNIMO",
+      "CUANTO SE PUEDE CARGAR", "CUÁNTO SE PUEDE CARGAR",
+      "HAY MINIMO", "HAY MÍNIMO",
+      "TIENE MINIMO", "TIENE MÍNIMO",
+      // Cómo jugar / empezar
+      "COMO JUEGO", "CÓMO JUEGO",
+      "COMO EMPIEZO", "CÓMO EMPIEZO",
+      "COMO ARRANCO", "CÓMO ARRANCO",
+      "COMO HAGO", "CÓMO HAGO",
+      "COMO ME REGISTRO", "CÓMO ME REGISTRO",
+      "COMO ENTRO", "CÓMO ENTRO",
+      "QUE TENGO QUE HACER", "QUÉ TENGO QUE HACER",
+      "POR DONDE EMPIEZO", "POR DÓNDE EMPIEZO",
+      "POR DONDE ARRANCO", "POR DÓNDE ARRANCO",
+      // Depósito / carga / retiro
+      "COMO DEPOSITO", "CÓMO DEPOSITO",
+      "COMO CARGO", "CÓMO CARGO",
+      "COMO HAGO PARA CARGAR", "CÓMO HAGO PARA CARGAR",
+      "COMO HAGO PARA DEPOSITAR", "CÓMO HAGO PARA DEPOSITAR",
+      "DONDE DEPOSITO", "DÓNDE DEPOSITO",
+      "DONDE CARGO", "DÓNDE CARGO",
+      "COMO RETIRO", "CÓMO RETIRO",
+      "COMO COBRO", "CÓMO COBRO",
+      "COMO SACO LA PLATA", "CÓMO SACO LA PLATA",
+      "COMO RETIRO LA PLATA", "CÓMO RETIRO LA PLATA",
+      "SE PUEDE RETIRAR", "PUEDO RETIRAR",
+      "PUEDO COBRAR", "PUEDO SACAR",
+      "METODOS DE PAGO", "MÉTODOS DE PAGO",
+      "FORMAS DE PAGO", "MEDIOS DE PAGO",
+      "ACEPTAN TRANSFERENCIA", "ACEPTAN MERCADOPAGO",
+      "POR MERCADOPAGO", "POR MP", "CON MP",
+      "POR TRANSFERENCIA", "CON TRANSFERENCIA",
+      // Juegos
+      "CUALES SON LOS JUEGOS", "CUÁLES SON LOS JUEGOS",
+      "QUE JUEGOS HAY", "QUÉ JUEGOS HAY",
+      "QUE JUEGOS TIENEN", "QUÉ JUEGOS TIENEN",
+      "QUE SE PUEDE JUGAR", "QUÉ SE PUEDE JUGAR",
+      "HAY CASINO", "HAY RULETA", "HAY TRAGAMONEDAS",
+      "HAY DEPORTES", "HAY APUESTAS",
+      "TIENEN FUTBOL", "TIENEN FÚTBOL",
+      // Confianza / seguridad
+      "ES CONFIABLE", "ES SEGURO", "ES DE CONFIANZA",
+      "ES LEGAL", "ES TRUCHO", "ES POSTA",
+      "SE PUEDE CONFIAR", "PAGAN", "PAGAN BIEN",
+      "ES REAL", "FUNCIONA POSTA",
+      // Bonos / promos
+      "HAY BONO", "HAY BONOS", "HAY PROMO", "HAY PROMOS",
+      "TIENEN BONO", "TIENEN BONOS",
+      "BONO DE BIENVENIDA", "PROMO DE BIENVENIDA",
+      "HAY ALGUN BONO", "HAY ALGÚN BONO",
+      "DAN ALGO", "DAN BONO", "REGALAN ALGO",
+      "TIENEN ALGUNA PROMO", "TIENEN ALGUNA PROMOCION",
+      // Argentinismos
+      "TIRAME LA DATA", "TIRÁME LA DATA",
+      "PASAME LA DATA", "PASÁME LA DATA",
+      "TIRAME LA POSTA", "TIRÁME LA POSTA",
+      "COMO ES LA JODA", "CÓMO ES LA JODA",
+      "DONDE ME METO", "DÓNDE ME METO",
+      "DAME UNA MANO", "DAMÉ UNA MANO",
+      "A VER", "BUENO CONTAME", "DALE CONTAME",
+      "CHE INFO", "CHE CONSULTA",
+      "QUE ONDA CON ESTO", "QUÉ ONDA CON ESTO",
+      "COMO VA LA MANO", "CÓMO VA LA MANO"
+    ]
   },
   SOPORTE: {
-    exact: ["SOPORTE", "AYUDA", "ASISTENCIA", "HELP"],
-    contains: ["NECESITO AYUDA", "NECESITO SOPORTE", "QUIERO AYUDA", "TENGO UN PROBLEMA", "NO PUEDO"]
+    exact: [
+      "SOPORTE", "AYUDA", "ASISTENCIA", "HELP",
+      "PROBLEMA", "ERROR", "BUG", "RECLAMO"
+    ],
+    contains: [
+      // Pedir ayuda
+      "NECESITO AYUDA", "NECESITO SOPORTE", "QUIERO AYUDA",
+      "ME PUEDEN AYUDAR", "ME PODRIAN AYUDAR", "ME PODRÍAN AYUDAR",
+      "ALGUIEN ME AYUDA", "ALGUIEN QUE ME AYUDE",
+      "QUIEN ME AYUDA", "QUIÉN ME AYUDA",
+      // Problemas generales
+      "TENGO UN PROBLEMA", "TENGO PROBLEMA",
+      "NO PUEDO", "NO ME DEJA",
+      "NO ME FUNCIONA", "NO FUNCIONA", "NO ANDA", "NO ME ANDA",
+      "NO VA", "NO ME VA",
+      "ME DA ERROR", "SALE ERROR", "TIRA ERROR", "DA ERROR",
+      "ME SALE ERROR", "ME TIRA ERROR",
+      "ALGO ANDA MAL", "ALGO SALIO MAL", "ALGO SALIÓ MAL",
+      // Login / acceso
+      "NO PUEDO ENTRAR", "NO PUEDO INGRESAR",
+      "NO PUEDO ACCEDER", "NO ME PUEDO LOGUEAR", "NO PUEDO LOGEARME",
+      "NO ME DEJA ENTRAR", "NO ME DEJA INGRESAR",
+      "NO PUEDO INICIAR SESION", "NO PUEDO INICIAR SESIÓN",
+      "ME REBOTA", "ME RECHAZA", "ME BLOQUEA",
+      "ME SACA", "ME DESLOGUEA", "ME CIERRA",
+      "NO RECONOCE MI USUARIO", "NO RECONOCE LA CONTRASEÑA",
+      "CONTRASEÑA INCORRECTA", "USUARIO INCORRECTO",
+      "NO ME TOMA EL USUARIO", "NO ME TOMA LA CLAVE",
+      "ME DICE QUE ES INCORRECTO", "DICE DATOS INCORRECTOS",
+      // Página caída / carga
+      "SE ME TRABO", "SE TRABO", "SE ME TRABÓ", "SE TRABÓ",
+      "ESTA CAIDO", "ESTÁ CAÍDO", "ESTA CAIDA", "ESTÁ CAÍDA",
+      "NO CARGA", "CARGA MAL", "TARDA MUCHO",
+      "ESTA LENTO", "ESTÁ LENTO", "VA LENTO", "MUY LENTO",
+      "SE CUELGA", "SE ME CUELGA", "SE TILDA", "SE ME TILDA",
+      "PANTALLA BLANCA", "QUEDA EN BLANCO", "NO MUESTRA NADA",
+      "PAGINA ROTA", "PÁGINA ROTA",
+      // Depósito / plata / acreditación
+      "NO ME ACREDITARON", "NO SE ACREDITO", "NO SE ACREDITÓ",
+      "NO LLEGO MI DEPOSITO", "NO LLEGÓ MI DEPÓSITO",
+      "NO APARECE MI CARGA", "NO APARECE EL SALDO",
+      "NO TENGO SALDO", "NO ME APARECE",
+      "DEPOSITE Y NO APARECE", "DEPOSITÉ Y NO APARECE",
+      "CARGUE Y NO APARECE", "CARGUÉ Y NO APARECE",
+      "TRANSFERI Y NO APARECE", "TRANSFERÍ Y NO APARECE",
+      "CUANTO TARDA", "CUÁNTO TARDA",
+      "CUANDO SE ACREDITA", "CUÁNDO SE ACREDITA",
+      "FALTA MI PLATA", "NO ESTA MI PLATA", "NO ESTÁ MI PLATA",
+      "DONDE ESTA MI PLATA", "DÓNDE ESTÁ MI PLATA",
+      // Retiro
+      "NO PUEDO RETIRAR", "NO ME DEJA RETIRAR",
+      "NO PUEDO COBRAR", "NO ME DEJA COBRAR",
+      // Hablar con alguien
+      "HABLAR CON ALGUIEN", "OPERADOR", "PERSONA REAL",
+      "QUIERO HABLAR", "NECESITO HABLAR",
+      "HABLAR CON UN HUMANO", "ATENCION AL CLIENTE", "ATENCIÓN AL CLIENTE",
+      "HABLAR CON SOPORTE", "PASAR CON SOPORTE",
+      "HAY ALGUIEN", "HAY ALGUIEN AHI", "HAY ALGUIEN AHÍ",
+      "ATIENDE ALGUIEN", "ME ATIENDE ALGUIEN",
+      "QUIERO HACER UN RECLAMO", "TENGO UN RECLAMO",
+      // Dudas / no entender
+      "TENGO UNA DUDA", "TENGO DUDAS", "UNA CONSULTA",
+      "NO SE COMO", "NO SÉ CÓMO", "NO ENTIENDO",
+      "NO ENTENDI", "NO ENTENDÍ",
+      "QUE HAGO", "QUÉ HAGO", "QUE HAGO AHORA", "QUÉ HAGO AHORA",
+      "COMO SIGO", "CÓMO SIGO", "QUE SIGUE", "QUÉ SIGUE",
+      "NO SE QUE HACER", "NO SÉ QUÉ HACER",
+      "DONDE ESCRIBO", "DÓNDE ESCRIBO",
+      "A QUIEN CONTACTO", "A QUIÉN CONTACTO",
+      "A DONDE ESCRIBO", "A DÓNDE ESCRIBO",
+      "DONDE RECLAMO", "DÓNDE RECLAMO",
+      // Argentinismos
+      "ME ESTAN CAGANDO", "ME ESTÁN CAGANDO",
+      "ES UNA ESTAFA", "ME ESTAFARON",
+      "QUE ONDA ESTO", "QUÉ ONDA ESTO",
+      "LA PAGINA NO VA", "LA PÁGINA NO VA",
+      "ESTO NO VA", "ESTO NO ANDA",
+      "ESTO ANDA MAL",
+      "LOCO AYUDA", "FLACO AYUDA", "CHABON AYUDA", "CHABÓN AYUDA",
+      "POR FAVOR AYUDA", "AYUDENME", "AYÚDENME",
+      "CHE AYUDA", "CHE SOPORTE", "CHE PROBLEMA",
+      "BOLUDO AYUDA", "VIEJA AYUDA", "WACHIN AYUDA",
+      "ESTO ES UN DESASTRE", "TODO MAL",
+      "NO FUNCA", "NO FUNCA NADA"
+    ]
   },
   CREAR_USUARIO: {
     exact: ["CREAR", "USUARIO", "CREAR USUARIO", "NUEVO USUARIO"],
