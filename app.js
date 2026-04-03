@@ -7,13 +7,7 @@ const state = {
     lineNames: {},  // ✅ NUEVO: nombres editables de líneas
     statuses: {},
     consoles: {
-        global: [],
-        line001: [], line002: [], line003: [], line004: [], line005: [],
-        line006: [], line007: [], line008: [], line009: [], line010: [],
-        line011: [], line012: [], line013: [], line014: [], line015: [],
-        line016: [], line017: [], line018: [], line019: [], line020: [],
-        line021: [], line022: [], line023: [], line024: [], line025: [],
-        line026: [], line027: [], line028: [], line029: [], line030: []
+        global: []
     },
     activeConsole: 'global',
     cfStatus: null,
@@ -27,6 +21,11 @@ const state = {
     }
 };
 
+const uiLocks = {
+    bulkStartRunning: false,
+    bulkStopRunning: false
+};
+
 function escapeHtml(s) {
     return String(s)
         .replaceAll("&", "&amp;")
@@ -34,6 +33,27 @@ function escapeHtml(s) {
         .replaceAll(">", "&gt;")
         .replaceAll('"', "&quot;")
         .replaceAll("'", "&#039;");
+}
+
+function ensureLineConsole(lineId) {
+    if (!lineId) return;
+    if (!state.consoles[lineId]) {
+        state.consoles[lineId] = [];
+    }
+
+    const container = $('.console-container');
+    if (!container) return;
+
+    if (!document.getElementById(`console-${lineId}`)) {
+        const consoleDiv = document.createElement('div');
+        consoleDiv.className = 'console';
+        consoleDiv.id = `console-${lineId}`;
+        container.appendChild(consoleDiv);
+    }
+}
+
+function syncLineConsoles() {
+    state.lines.forEach(line => ensureLineConsole(line.lineId));
 }
 
 function pushLog(lineId, line, type = 'info') {
@@ -45,6 +65,9 @@ function pushLog(lineId, line, type = 'info') {
     state.consoles.global = state.consoles.global.slice(0, 500);
     
     // Guardar en consola específica de la línea
+    if (lineId) {
+        ensureLineConsole(lineId);
+    }
     if (lineId && state.consoles[lineId]) {
         state.consoles[lineId].unshift(`<span class="${type}">${escapeHtml(logEntry)}</span>`);
         state.consoles[lineId] = state.consoles[lineId].slice(0, 300);
@@ -137,6 +160,7 @@ async function refreshLines() {
             state.statuses[st.lineId] = { ...state.statuses[st.lineId], ...st };
         });
 
+        syncLineConsoles();
         renderLines();
         createConsoleTabs();
         updateStats();
@@ -303,7 +327,13 @@ function setupLinesClickHandler() {
     });
 }
 
-async function handleLineAction(lineId, action) {
+async function handleLineAction(lineId, action, options = {}) {
+    const source = options?.source === 'bulk' ? 'bulk' : 'single';
+    if (source === 'single' && (uiLocks.bulkStartRunning || uiLocks.bulkStopRunning)) {
+        pushLog(lineId, '[UI] Hay una accion masiva en curso. Espera a que termine.', 'warning');
+        return;
+    }
+
     const btn = document.querySelector(`button[data-line="${lineId}"][data-action]`);
     if (!btn) return;
     
@@ -313,10 +343,12 @@ async function handleLineAction(lineId, action) {
     
     try {
         if (action === 'start') {
-            await window.api.linesStart(lineId);
+            const res = await window.api.linesStart(lineId, { source });
+            if (!res?.ok) throw new Error(res?.error || 'No se pudo iniciar la linea');
             pushLog(lineId, `[UI] Iniciando línea ${lineId}`, 'info');
         } else {
-            await window.api.linesStop(lineId);
+            const res = await window.api.linesStop(lineId);
+            if (!res?.ok) throw new Error(res?.error || 'No se pudo detener la linea');
             pushLog(lineId, `[UI] Deteniendo línea ${lineId}`, 'info');
         }
     } catch (error) {
@@ -381,8 +413,13 @@ function updateStats() {
         const status = state.statuses[line.lineId]?.state;
         return status === 'READY' || status === 'AUTHENTICATED';
     }).length;
-    
-    $('#linesCount').textContent = `${state.lines.length}/30`;
+
+    const totalLines = state.lines.length;
+    $('#linesCount').textContent = `${totalLines}/${totalLines}`;
+    const linesHeader = $('.lines-header h3');
+    if (linesHeader) {
+        linesHeader.innerHTML = `<i class="fas fa-list"></i> Lineas (${totalLines})`;
+    }
     $('#activeLines').textContent = activeLines;
 }
 
@@ -611,18 +648,36 @@ function init() {
     });
     
     $('#btnStartAll')?.addEventListener('click', async () => {
-        pushLog(null, '[UI] Iniciando todas las líneas...', 'info');
-        for (const line of state.lines) {
-            await handleLineAction(line.lineId, 'start');
-            await new Promise(resolve => setTimeout(resolve, 1000));
+        if (uiLocks.bulkStartRunning || uiLocks.bulkStopRunning) return;
+        const confirmed = window.confirm('Esto va a iniciar todas las lineas. Continuar?');
+        if (!confirmed) return;
+
+        uiLocks.bulkStartRunning = true;
+        try {
+            pushLog(null, '[UI] Iniciando todas las lineas...', 'info');
+            for (const line of state.lines) {
+                await handleLineAction(line.lineId, 'start', { source: 'bulk' });
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        } finally {
+            uiLocks.bulkStartRunning = false;
         }
     });
     
     $('#btnStopAll')?.addEventListener('click', async () => {
-        pushLog(null, '[UI] Deteniendo todas las líneas...', 'info');
-        for (const line of state.lines) {
-            await handleLineAction(line.lineId, 'stop');
-            await new Promise(resolve => setTimeout(resolve, 500));
+        if (uiLocks.bulkStartRunning || uiLocks.bulkStopRunning) return;
+        const confirmed = window.confirm('Esto va a detener todas las lineas. Continuar?');
+        if (!confirmed) return;
+
+        uiLocks.bulkStopRunning = true;
+        try {
+            pushLog(null, '[UI] Deteniendo todas las lineas...', 'info');
+            for (const line of state.lines) {
+                await handleLineAction(line.lineId, 'stop', { source: 'bulk' });
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        } finally {
+            uiLocks.bulkStopRunning = false;
         }
     });
 
@@ -730,7 +785,25 @@ function init() {
     refreshLines();
     refreshCfStatus();
     initCfTimer();
-    initAutoUpdater(); // ✅ NUEVO: Auto-updater
+    window.api.appIsPackaged?.()
+        .then((isPackaged) => {
+            if (isPackaged) {
+                initAutoUpdater(); // ✅ NUEVO: Auto-updater
+                return;
+            }
+
+            // En desarrollo (npm start) no usar updater bloqueante.
+            sessionStorage.setItem('updateChecked', '1');
+            window.api.appGetVersion?.().then(version => {
+                const el = $('#appVersion');
+                if (el && version) el.textContent = `v${version}`;
+            });
+            pushLog(null, '[UPDATE] Modo desarrollo: auto-updater deshabilitado', 'info');
+        })
+        .catch(() => {
+            // Fallback seguro: si no podemos detectar modo, mantener updater normal.
+            initAutoUpdater();
+        });
     
     // Auto-refresh cada 30 segundos
     setInterval(() => {
@@ -747,7 +820,8 @@ function init() {
 
 function initAutoUpdater() {
     // Mostrar versión actual en el header
-    window.api.updaterGetVersion?.().then(version => {
+    const versionPromise = window.api.appGetVersion?.() || window.api.updaterGetVersion?.();
+    Promise.resolve(versionPromise).then(version => {
         const el = $('#appVersion');
         if (el) el.textContent = `v${version}`;
     });

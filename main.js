@@ -786,6 +786,8 @@ app.whenReady().then(async () => {
   });
   ipcMain.handle("window:close", () => mainWindow?.close());
   ipcMain.handle("window:isMaximized", () => mainWindow?.isMaximized() ?? false);
+  ipcMain.handle("app:is-packaged", () => app.isPackaged);
+  ipcMain.handle("app:get-version", () => app.getVersion());
 
   ipcMain.handle("lines:list", async () => {
     try {
@@ -796,9 +798,9 @@ app.whenReady().then(async () => {
     }
   });
 
-  ipcMain.handle("lines:start", async (_e, lineId) => {
+  ipcMain.handle("lines:start", async (_e, lineId, options = {}) => {
     try {
-      return await lineManager.startLine(lineId);
+      return await lineManager.startLine(lineId, options);
     } catch (error) {
       console.error("Error en lines:start:", error);
       return { ok: false, error: error.message };
@@ -1136,8 +1138,15 @@ app.whenReady().then(async () => {
 
   createMainWindow();
 
-  // ✅ Auto-updater PRIMERO — verifica antes de inicializar el resto
-  setupAutoUpdater(mainWindow, sendLog);
+  // ✅ Auto-updater solo en app empaquetada (.exe)
+  if (app.isPackaged) {
+    setupAutoUpdater(mainWindow, sendLog);
+  } else {
+    sendLog({
+      type: "AUTO_UPDATE",
+      message: "Modo desarrollo detectado: auto-updater deshabilitado"
+    });
+  }
 
   scheduleAutoRenewal(configStore);
 

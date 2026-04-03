@@ -6,10 +6,12 @@ contextBridge.exposeInMainWorld("api", {
   windowMaximize: () => ipcRenderer.invoke("window:maximize"),
   windowClose: () => ipcRenderer.invoke("window:close"),
   windowIsMaximized: () => ipcRenderer.invoke("window:isMaximized"),
+  appIsPackaged: () => ipcRenderer.invoke("app:is-packaged"),
+  appGetVersion: () => ipcRenderer.invoke("app:get-version"),
 
   // Lines
   linesList: () => ipcRenderer.invoke("lines:list"),
-  linesStart: (lineId) => ipcRenderer.invoke("lines:start", lineId),
+  linesStart: (lineId, options = {}) => ipcRenderer.invoke("lines:start", lineId, options),
   linesStop: (lineId) => ipcRenderer.invoke("lines:stop", lineId),
   linesStatus: (lineId) => ipcRenderer.invoke("lines:status", lineId),
   // ✅ NUEVO: Nombres editables de líneas

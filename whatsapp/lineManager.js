@@ -4,6 +4,11 @@ const path = require("path");
 const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js"); // ✅ AGREGADO: MessageMedia
 const qrcode = require("qrcode-terminal");
 
+const VALID_LINE_ID = /^line\d{3}$/;
+const MIN_LINE_NUMBER = 1;
+const MAX_LINE_NUMBER = 100;
+const SINGLE_START_GUARD_MS = 4000;
+
 /**
  * Encuentra Chrome o Edge instalado en el sistema.
  */
@@ -49,6 +54,12 @@ function findChromePath() {
   return null;
 }
 
+function isValidLineId(lineId) {
+  if (typeof lineId !== "string" || !VALID_LINE_ID.test(lineId)) return false;
+  const num = Number.parseInt(lineId.slice(4), 10);
+  return Number.isInteger(num) && num >= MIN_LINE_NUMBER && num <= MAX_LINE_NUMBER;
+}
+
 class LineManager {
   constructor({ basePath, onQr, onStatus, onMessage, onLog }) {
     this.basePath = basePath;
@@ -59,6 +70,8 @@ class LineManager {
     this.engine = null;
     this.clients = new Map();
     this.statuses = new Map();
+    this._startingLines = new Set();
+    this._lastSingleStart = { lineId: null, at: 0 };
 
     this._log("INIT", "LineManager inicializado");
   }
@@ -83,14 +96,14 @@ class LineManager {
       const linesDir = path.join(this.basePath, "lines");
       if (!fs.existsSync(linesDir)) {
         fs.mkdirSync(linesDir, { recursive: true });
-        return Array.from({ length: 100 }, (_, i) => ({
+        return Array.from({ length: MAX_LINE_NUMBER }, (_, i) => ({
           lineId: `line${String(i + 1).padStart(3, "0")}`,
           name: `Línea ${i + 1}`,
           createdAt: new Date().toISOString(),
         }));
       }
 
-      const lines = Array.from({ length: 100 }, (_, i) => ({
+      const lines = Array.from({ length: MAX_LINE_NUMBER }, (_, i) => ({
         lineId: `line${String(i + 1).padStart(3, "0")}`,
         name: `Línea ${i + 1}`,
         createdAt: new Date().toISOString(),
@@ -103,7 +116,43 @@ class LineManager {
     }
   }
 
-  async startLine(lineId) {
+  async startLine(lineId, options = {}) {
+    const source = options?.source === "bulk" ? "bulk" : "single";
+
+    if (!isValidLineId(lineId)) {
+      this._log("START_ERROR", `ID de linea invalido: ${String(lineId)}`);
+      return { ok: false, error: "ID de linea invalido" };
+    }
+
+    if (this._startingLines.has(lineId)) {
+      this._log("START_SKIP", `Linea ${lineId} ya esta iniciando`, lineId);
+      return { ok: false, error: "Linea ya iniciando" };
+    }
+
+    if (source !== "bulk") {
+      const now = Date.now();
+      const isCascade =
+        this._lastSingleStart.lineId &&
+        this._lastSingleStart.lineId !== lineId &&
+        now - this._lastSingleStart.at < SINGLE_START_GUARD_MS;
+
+      if (isCascade) {
+        this._log(
+          "START_BLOCKED",
+          `Bloqueado inicio en cascada: ${this._lastSingleStart.lineId} -> ${lineId}`,
+          lineId
+        );
+        return {
+          ok: false,
+          error: "Proteccion anti-cascada activa. Espera unos segundos e intenta de nuevo.",
+        };
+      }
+
+      this._lastSingleStart = { lineId, at: now };
+    }
+
+    this._startingLines.add(lineId);
+
     try {
       if (this.clients.has(lineId)) {
         this._log("START_ERROR", `Línea ${lineId} ya está activa`, lineId);
@@ -114,9 +163,22 @@ class LineManager {
       this.statuses.set(lineId, { state: "STARTING" });
       this.onStatus?.(lineId, { state: "STARTING" });
 
-      const sessionDir = path.join(this.basePath, "sessions", lineId);
+      const sessionsRootDir = path.join(this.basePath, "sessions");
+      const sessionDir = path.join(sessionsRootDir, lineId);
+      const legacySessionDir = path.join(sessionsRootDir, `session-${lineId}`);
+      const targetSessionDir = path.join(sessionDir, `session-${lineId}`);
+
       if (!fs.existsSync(sessionDir)) {
         fs.mkdirSync(sessionDir, { recursive: true });
+      }
+
+      if (!fs.existsSync(targetSessionDir) && fs.existsSync(legacySessionDir)) {
+        try {
+          fs.cpSync(legacySessionDir, targetSessionDir, { recursive: true });
+          this._log("SESSION_MIGRATED", "Sesion migrada a modo aislado", lineId);
+        } catch (copyErr) {
+          this._log("SESSION_MIGRATE_ERROR", `No se pudo migrar sesion: ${copyErr.message}`, lineId);
+        }
       }
 
       const chromePath = findChromePath();
@@ -131,7 +193,7 @@ class LineManager {
       const client = new Client({
         authStrategy: new LocalAuth({
           clientId: lineId,
-          dataPath: path.join(this.basePath, "sessions"),
+          dataPath: sessionDir,
         }),
         puppeteer: {
           headless: true,
@@ -144,6 +206,15 @@ class LineManager {
             "--no-first-run",
             "--no-zygote",
             "--disable-gpu",
+            "--disable-background-networking",
+            "--disable-default-apps",
+            "--disable-extensions",
+            "--disable-sync",
+            "--disable-translate",
+            "--metrics-recording-only",
+            "--mute-audio",
+            "--no-default-browser-check",
+            "--js-flags=--max-old-space-size=128",
           ],
         },
       });
@@ -155,7 +226,6 @@ class LineManager {
         qrcode2.generate(qr, { small: true });
 
         // Generar QR como imagen base64
-        const QRCode = require("qrcode-terminal");
         const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qr)}&size=300x300`;
 
         this.statuses.set(lineId, {
@@ -291,6 +361,8 @@ class LineManager {
         error: error.message,
       });
       return { ok: false, error: error.message };
+    } finally {
+      this._startingLines.delete(lineId);
     }
   }
 
