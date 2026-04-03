@@ -1157,12 +1157,6 @@ app.on('will-quit', async () => {
   if (userCreator) {
     userCreator.clearPuppeteerPage();
   }
-  // ✅ Detener todas las líneas y cerrar browser compartido
-  if (lineManager) {
-    try {
-      await lineManager.stopAll();
-    } catch {}
-  }
   if (puppeteerBrowser) {
     try {
       await puppeteerBrowser.close();
